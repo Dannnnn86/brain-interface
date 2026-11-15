@@ -17,6 +17,8 @@ Project scaffolded at `D:\projects\44-brain-interface`. Design spec approved; im
   pattern (`sprite.count` drives instancing). Verified via headless screenshot + vision QA.
 - Smoke test: 8/8. QA shots: boot OK, 30 session cards, feed flowing, 6 labels, 128-140fps
   (SwiftShader headless; higher on real GPU).
-- Not yet committed to git (awaiting Dan's go).
-- Next: live plugin verification after opencode restart; Milestone 2 (Architecture Map +
-  impulse polish + replay foundation).
+- Committed as `c29f021` (42 files) on Dan's go.
+- Roadmap written: [[docs/superpowers/plans/2026-11-15-brain-interface-m2-roadmap]]
+  (M2 Explorer: architecture map + focus interactions + event recorder;
+  M3 Time Machine: replay; M4 Analyst: analytics + persistence).
+- Next: M2-A live plugin verification after opencode restart, then M2-B map.

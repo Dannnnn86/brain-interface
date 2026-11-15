@@ -35,6 +35,7 @@ A single-page WebGPU app that renders opencode's whole system as an interactive 
 
 - Spec: [[docs/superpowers/specs/2026-11-14-opencode-brain-interface-design]]
 - Plan: [[docs/superpowers/plans/2026-11-14-brain-interface-implementation]]
+- Roadmap (M2-M4): [[docs/superpowers/plans/2026-11-15-brain-interface-m2-roadmap]]
 
 ## Key Decisions
 
