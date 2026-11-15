@@ -1,0 +1,21 @@
+{
+  "name": "brain-interface",
+  "private": true,
+  "version": "0.1.0",
+  "description": "3D WebGPU visualization of the opencode system — live sessions, architecture, replay, analytics",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "sim": "node scripts/dev.js --simulate",
+    "server": "node server/src/index.js",
+    "build": "npm run build -w web",
+    "start": "node server/src/index.js --serve-web"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

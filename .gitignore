@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.vite/
+*.log
+server/data/
+.project-meta/memory/*
+!server/data/.keep

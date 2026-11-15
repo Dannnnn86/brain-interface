@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Brain Interface — opencode</title>
+    <style>
+      /* prevent white flash before CSS loads */
+      html, body { margin: 0; background: #030508; height: 100%; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div id="hud">
+      <div id="labels"></div>
+    </div>
+    <div id="boot">
+      <div class="boot-glyph">◉</div>
+      <div class="boot-text">initializing neural interface<span class="boot-dots"><span>.</span><span>.</span><span>.</span></span></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
