@@ -274,6 +274,42 @@ try {
   })()`);
   check('Esc exits replay back to brain', exited?.mode === 'brain' && exited.active === false && exited.bar === false);
 
+  /* ---- 9. analytics overlay ---- */
+  await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))`);
+  await sleep(2200); // rpc fetch + render + bar animations
+  const anState = await evaluate(`({
+    open: window.__brain?.analyticsOpen?.() ?? false,
+    visible: document.getElementById('panel-analytics')?.style.display !== 'none',
+    cards: document.querySelectorAll('.an-card').length,
+    bars: document.querySelectorAll('.an-bar-row').length,
+    heatCells: document.querySelectorAll('.an-heat-cell').length,
+    totals: Array.from(document.querySelectorAll('.an-total-num')).map((n) => n.textContent).join(','),
+    sub: document.querySelector('.an-sub')?.textContent ?? '',
+  })`);
+  check(
+    'analytics overlay opens with cards',
+    anState.open === true && anState.visible === true && anState.cards >= 5,
+    `${anState.cards} cards · totals [${anState.totals}]`,
+  );
+  check(
+    'heatmap + bars rendered',
+    anState.heatCells === 168 && anState.bars >= 3,
+    `${anState.heatCells} heat cells · ${anState.bars} bars`,
+  );
+
+  const scoped = await evaluate(`(async () => {
+    document.querySelector('.an-scope-btn:not(.active)')?.click();
+    await new Promise((r) => setTimeout(r, 1800));
+    return { sub: document.querySelector('.an-sub')?.textContent ?? '',
+      active: document.querySelector('.an-scope-btn.active')?.textContent ?? '' };
+  })()`);
+  check('scope toggle refetches (real)', scoped.active === 'REAL', scoped.sub.slice(0, 70));
+
+  await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+  await sleep(400);
+  const anClosed = await evaluate(`window.__brain?.analyticsOpen?.() ?? true`);
+  check('Esc closes analytics', anClosed === false);
+
   ws.close();
   chrome.kill();
 } catch (err) {

@@ -20,6 +20,7 @@ import { Ingest } from './ingest.js';
 import { Recorder, currentDay } from './recorder.js';
 import { SessionStore } from './sessions.js';
 import { buildTimeline } from './timeline.js';
+import { buildAnalytics } from './analytics.js';
 import { startWatcher } from './watcher.js';
 import { Simulator } from './simulator.js';
 import { getSystemState } from './state.js';
@@ -200,6 +201,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'GET' && pathname === '/api/analytics') {
+      const scope = url.searchParams.get('scope') === 'real' ? 'real' : 'all';
+      json(res, 200, buildAnalytics({ recorder }, scope));
+      return;
+    }
+
     if (req.method === 'GET' && pathname === '/api/events') {
       const day = url.searchParams.get('day') || currentDay();
       const limit = Number(url.searchParams.get('limit') || 2000);
@@ -252,6 +259,11 @@ function handleClientMessage(ws, msg) {
         const built = buildTimeline({ store, recorder }, id);
         if (!built) return fail('no timeline for this session');
         respond(built);
+        break;
+      }
+      case 'getAnalytics': {
+        const scope = msg.params?.scope === 'real' ? 'real' : 'all';
+        respond(buildAnalytics({ recorder }, scope));
         break;
       }
       case 'getFeed':

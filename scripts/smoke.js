@@ -155,6 +155,32 @@ try {
     );
   }
 
+  // ---- Analytics (M4) ----
+  {
+    const res = await fetch(`${BASE}/api/analytics`);
+    const an = res.ok ? await res.json() : null;
+    check(
+      'analytics builds (all scope)',
+      !!an &&
+        Array.isArray(an.toolHealth) &&
+        an.toolHealth.length >= 1 &&
+        an.activity.days.length === 30 &&
+        an.heatmap.rows.length === 7 &&
+        an.heatmap.rows[0].length === 24 &&
+        an.counts.total > 0,
+      an ? `${an.counts.total} events / ${an.toolHealth.length} tools / ${an.counts.sessions} sessions` : `HTTP ${res.status}`,
+    );
+  }
+  {
+    const res = await fetch(`${BASE}/api/analytics?scope=real`);
+    const an = res.ok ? await res.json() : null;
+    check(
+      'analytics real scope excludes simulated',
+      !!an && an.scope === 'real' && an.counts.scoped === an.counts.real && an.counts.real < an.counts.total,
+      an ? `scoped=${an.counts.scoped} of total=${an.counts.total}` : `HTTP ${res.status}`,
+    );
+  }
+
   // Real vault session (recorded or transcript source — both are valid).
   const realCandidate = sessions1.sessions.find((s) => s.simulated !== true && s.messages > 5);
   if (realCandidate) {

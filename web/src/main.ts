@@ -24,7 +24,8 @@ import { Hud } from './ui/hud.js';
 import { ArchitectureMap } from './modules/architectureMap.js';
 import { ReplayEngine } from './modules/replayEngine.js';
 import { ReplayPicker, TimelineBar, ReplayLog, frameToLogEntry } from './ui/replayUi.js';
-import type { ReplayTimeline, SystemEvent, TimelineFrame } from '@shared/protocol.js';
+import { AnalyticsPanel } from './ui/analyticsPanel.js';
+import type { AnalyticsResponse, ReplayTimeline, SystemEvent, TimelineFrame } from '@shared/protocol.js';
 
 type Mode = 'brain' | 'map' | 'replay';
 
@@ -75,6 +76,7 @@ async function boot(): Promise<void> {
   const picker = new ReplayPicker(hud.root);
   const timelineBar = new TimelineBar(hud.root);
   const replayLog = new ReplayLog(hud.root);
+  const analyticsPanel = new AnalyticsPanel(hud.root);
 
   function frameToSystemEvent(frame: TimelineFrame): SystemEvent {
     return {
@@ -234,6 +236,66 @@ async function boot(): Promise<void> {
   timelineBar.onStep = (dir) => replay.step(dir);
   timelineBar.onClose = () => void setMode('brain');
 
+  /* --------------------------- analytics --------------------------- */
+
+  let analyticsData: AnalyticsResponse | null = null;
+
+  async function loadAnalytics(scope: 'all' | 'real', force = false): Promise<void> {
+    if (
+      !force &&
+      analyticsData &&
+      analyticsData.scope === scope &&
+      Date.now() - analyticsData.generatedAt < 60_000
+    ) {
+      analyticsPanel.render(analyticsData);
+      return;
+    }
+    try {
+      if (!(await whenConnected())) throw new Error('no connection');
+      const data = (await rpc('getAnalytics', { scope })) as AnalyticsResponse;
+      analyticsData = data;
+      analyticsPanel.render(data);
+      applyBrainHeat(data);
+      map.setSkillUsage(new Map(data.skillUsage.map((u) => [u.skill, u.calls])));
+    } catch (err) {
+      console.warn('[brain] analytics failed:', err);
+    }
+  }
+
+  function openAnalytics(): void {
+    analyticsPanel.show();
+    hud.setAnalyticsOpen(true);
+    void loadAnalytics(analyticsPanel.scope);
+  }
+
+  function closeAnalytics(): void {
+    analyticsPanel.hide();
+    hud.setAnalyticsOpen(false);
+  }
+
+  function applyBrainHeat(data: AnalyticsResponse): void {
+    const t = data.byType;
+    const raw: Array<[RegionName, number]> = [
+      ['frontal', t['session.activity'] ?? 0],
+      ['temporal', data.counts.sessions],
+      ['parietal', t['tool.call'] ?? 0],
+      ['cerebellum', data.skillUsage.reduce((a, s) => a + s.calls, 0)],
+      ['brainstem', t['session.error'] ?? 0],
+      ['occipital', 0],
+    ];
+    const max = Math.max(1, ...raw.map(([, v]) => v));
+    const share: Partial<Record<RegionName, number>> = {};
+    for (const [name, v] of raw) share[name] = Math.sqrt(v / max);
+    regions.setActivityShare(share);
+  }
+
+  hud.onAnalyticsToggle = () => {
+    if (analyticsPanel.isOpen) closeAnalytics();
+    else openAnalytics();
+  };
+  analyticsPanel.onClose = () => closeAnalytics();
+  analyticsPanel.onScope = (scope) => void loadAnalytics(scope, true);
+
   hud.render(engine);
   store.subscribe(() => {
     hud.render(engine);
@@ -384,6 +446,12 @@ async function boot(): Promise<void> {
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
+    if (e.key === 'a' || e.key === 'A') {
+      if (analyticsPanel.isOpen) closeAnalytics();
+      else openAnalytics();
+      return;
+    }
+
     if (mode === 'replay') {
       switch (e.key) {
         case ' ':
@@ -399,7 +467,8 @@ async function boot(): Promise<void> {
           replay.step(-1);
           return;
         case 'Escape':
-          void setMode('brain');
+          if (analyticsPanel.isOpen) closeAnalytics();
+          else void setMode('brain');
           return;
         case 'm':
         case 'M':
@@ -417,7 +486,8 @@ async function boot(): Promise<void> {
     }
     switch (e.key) {
       case 'Escape':
-        clearSelection();
+        if (analyticsPanel.isOpen) closeAnalytics();
+        else clearSelection();
         break;
       case ' ':
         e.preventDefault();
@@ -458,7 +528,12 @@ async function boot(): Promise<void> {
     impulses,
     hud,
     replay,
+    analytics: analyticsPanel,
     loadReplay,
+    loadAnalytics,
+    openAnalytics,
+    closeAnalytics,
+    analyticsOpen: () => analyticsPanel.isOpen,
     replayState: () => ({ active: replayActive, id: replayId, ...replay.state }),
     mode: () => mode,
     setMode,
@@ -478,6 +553,7 @@ async function boot(): Promise<void> {
   } else if (urlSession) {
     focusSession(urlSession);
   }
+  if (params.get('analytics') === '1') void whenConnected().then(() => openAnalytics());
 
   // Dismiss the boot overlay after a beat so the first frames land smoothly.
   requestAnimationFrame(() =>

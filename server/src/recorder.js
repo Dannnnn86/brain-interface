@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const DATA_DIR = path.resolve(import.meta.dirname, '../../data/events');
-const MAX_READ = 5000;
+const MAX_READ = 50_000;
 
 /** YYYYMMDD in UTC — matches the appends below and the API's default. */
 export function currentDay() {

@@ -150,27 +150,38 @@ Deferred to M4: token capture from live events (probe pass when M4 starts).
 
 ---
 
-## M4 — Analyst (Analytics + Persistence)
+## M4 — Analyst (Analytics + Persistence) — DONE (2026-11-15)
 
 **Server:**
-- [ ] `GET /api/analytics` (cached 60s): from recorded events + transcripts:
-      - tool success rate + avg duration by tool (top 20);
-      - events/day + sessions/day (last 30 days, sparkline-ready arrays);
-      - per-model usage counts + token totals (once token capture proven);
-      - trim events, error rates, busiest hours (heatmap-ready 7×24 grid).
-- [ ] Usage-based edges for the MAP: agent → skill edges from transcripts'
-      skill invocations (weights = counts). Replaces guess-edges.
+- [x] `GET /api/analytics` + WS `getAnalytics` (cached 60s per scope) on
+      `server/src/analytics.js`: tool health (calls/okRate/avgMs; per-session
+      chronological call→result pairing, name-independent), 30-day activity
+      (events+sessions/day), models (events+sessions), 7×24 LOCAL-hour
+      heatmap, errors (+recent 10), skillUsage (skill-tool argsSummary),
+      byType counts. **Scope toggle `all|real`** (excludes simulated —
+      honest numbers police).
+      - Verified: cross-checked vs raw jsonl — **exact match** (24425 events /
+        5676 tool calls, delta 0). Recorder read cap raised 5k→50k (analytics
+        was silently truncating to exactly 10 000).
+- [x] Map usage-weighting: skill nodes swell by real invocation counts
+      (`setSkillUsage`, matched to skill labels). Agent→skill edges deferred —
+      agent attribution isn't reliable from current data (honest note).
 
 **Client — ANALYTICS overlay:**
-- [ ] Slide-over dashboard (no chart lib; hand-rolled canvas sparklines/bars):
-      4 cards (tool health, activity, models, heatmap). anime.js count-ups.
-- [ ] Brain heatmap mode: region orbs sized/brightened by activity share in
-      the window (e.g. cerebellum bigger when skill usage high).
-- [ ] IndexedDB persistence (idb): sessions + feed survive refresh; cold boot
-      instant from cache, then reconcile with hello. (Optional if time.)
+- [x] Slide-over dashboard (`web/src/ui/analyticsPanel.ts`): totals with
+      anime count-ups, tool-health bars (okRate color-coded), 30-day canvas
+      sparkline (events+sessions), model bars (provider colors), 168-cell
+      heatmap, top skills, recent errors. Scope toggle ALL|REAL. Opened via
+      the SYSTEM panel's "analytics ▸" link, key `a`, or `?analytics=1`.
+- [x] Brain heat: region orbs swell by activity share (sqrt-scaled) from
+      analytics (cerebellum grows with skill usage etc.).
+- [ ] IndexedDB persistence — DEFERRED (server hello already serves
+      everything on refresh; offline cold-boot not worth it yet).
 
-**Verify:** analytics numbers cross-checked against raw jsonl with a node
-one-liner (printed table); vision QA of dashboard.
+**Verify:** smoke **14/14** (analytics all+real scopes), qa-interact **20/20**
+(overlay, bars, 168 cells, scope refetch, Esc), vision QA confirmed totals
+(27k/548/6259/958 = API-exact), sessions-panel/feed overlap fixed
+(deterministic CDP check). Vite polling watcher: zero restarts needed.
 
 ---
 

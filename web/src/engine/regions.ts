@@ -54,6 +54,8 @@ export interface Regions {
   /** Global opacity multiplier (mode crossfades). */
   setFade(v: number): void;
   setVisible(v: boolean): void;
+  /** Analytics heat: 0..1 activity share per region swells its orb. */
+  setActivityShare(share: Partial<Record<RegionName, number>> | null): void;
 }
 
 export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regions {
@@ -98,10 +100,15 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
   const projected = new THREE.Vector3();
   let fade = 1;
   let visible = true;
+  let activity: Partial<Record<RegionName, number>> | null = null;
 
   return {
     anchors,
     pickables: orbs.map((o) => o.sprite),
+
+    setActivityShare(share) {
+      activity = share;
+    },
 
     setFade(v) {
       fade = THREE.MathUtils.clamp(v, 0, 1);
@@ -128,9 +135,10 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
       if (!visible) return;
       const now = performance.now();
       for (const orb of orbs) {
-        // Gentle independent pulse.
+        // Gentle independent pulse + analytics activity swell.
         const pulse = 1 + Math.sin(t * 1.1 + orb.phase) * 0.09;
-        orb.sprite.scale.setScalar(34 * pulse);
+        const heat = 1 + (activity?.[orb.def.name] ?? 0) * 0.75;
+        orb.sprite.scale.setScalar(34 * pulse * heat);
 
         // Color: flash lerp or base pulse.
         if (orb.flash && now < orb.flash.until) {

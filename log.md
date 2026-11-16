@@ -58,3 +58,19 @@ Project scaffolded at `D:\projects\44-brain-interface`. Design spec approved; im
 - **Durable fix**: Vite `server.watch.usePolling` (Windows watcher reliability;
   stale-CSS bit twice across sessions).
 - Deferred: token capture (M4, needs a probe pass over live event shapes).
+
+## 2026-11-15 — Milestone 4 (Analyst) complete — ROADMAP COMPLETE
+- **analytics.js**: tool health (per-session call→result pairing), 30-day
+  activity, models, 7×24 local-hour heatmap, errors, skill usage, byType;
+  scope all|real (simulated excluded); 60s cache. Cross-checked vs raw jsonl:
+  exact match (24425 events / 5676 calls, delta 0). Recorder MAX_READ 5k→50k.
+- **Analytics overlay**: totals count-ups, tool bars (okRate colors), canvas
+  sparkline, model bars, 168-cell heatmap, skills, errors; ALL/REAL toggle;
+  open via system-panel link / `a` / `?analytics=1`.
+- **Brain heat**: region orbs swell by activity share (sqrt) from analytics.
+- **Map**: skill nodes swell by real invocation counts.
+- Fixes: sessions panel overlapped feed (max-height cap); vision false-positive
+  rate noted again (heatmap "missing" = below fold; 168 cells in DOM).
+- Tests: smoke 14/14, qa-interact 20/20. Vite polling: 0 restarts needed.
+- Remaining nice-to-haves (parking lot): token capture probe, IndexedDB
+  offline boot, agent→skill map edges, WebM export, Telegram digest.

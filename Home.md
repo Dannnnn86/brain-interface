@@ -20,7 +20,7 @@ A single-page WebGPU app that renders opencode's whole system as an interactive 
 
 ## Status
 
-**Milestones 1-3 — DONE (2026-11-15)**
+**Milestones 1-4 — ROADMAP COMPLETE (2026-11-15)**
 
 - M1 Foundation: server (REST + WS + vault watcher + simulator), WebGPU brain
   cloud (44k points), region orbs, impulses, HUD; reporter plugin LIVE (real
@@ -31,9 +31,13 @@ A single-page WebGPU app that renders opencode's whole system as an interactive 
 - M3 Time Machine: replay any session — timeline API (recorded/transcript
   sources, 60s idle-gap compression), session picker, timeline bar (0.5-100x,
   scrub, bookmarks, stepping), replay log; `?mode=replay&session=` deep links
-- Tests: smoke 12/12, qa-interact 16/16, qa-shot + cdp-eval visual QA tooling
+- M4 Analyst: analytics API (tool health, 30-day activity, models, 7×24
+  heatmap, errors, skill usage; ALL/REAL scope) + slide-over dashboard
+  (`a` key / `?analytics=1`); brain heat by activity share; skill-weighted map
+- Tests: smoke 14/14, qa-interact 20/20, qa-shot + cdp-eval + vision QA
 - Run: `npm run sim` (demo) or `npm run dev` (live) → http://localhost:4200
-- Next: M4 Analyst (analytics API + dashboards + token capture + heatmap)
+- Parking lot: token capture probe, IndexedDB offline boot, agent→skill map
+  edges, WebM export, Telegram daily digest
 
 ## Design & Plan
 

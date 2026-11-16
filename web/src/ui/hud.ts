@@ -110,6 +110,9 @@ export class Hud {
   onSessionSelect: ((id: string) => void) | null = null;
   /** Set by main.ts: fired when the brain/map mode pill is clicked. */
   onModeChange: ((mode: string) => void) | null = null;
+  /** Set by main.ts: fired when the analytics button is clicked. */
+  onAnalyticsToggle: (() => void) | null = null;
+  private analyticsBtn!: HTMLButtonElement;
 
   constructor(engine: Engine, store: Store = defaultStore) {
     this.store = store;
@@ -173,6 +176,11 @@ export class Hud {
     systemPanel.id = 'panel-system';
     const sysHead = el('div', 'panel-head', systemPanel);
     el('div', 'panel-title', sysHead).textContent = 'system';
+    this.analyticsBtn = el('button', 'panel-link', sysHead);
+    this.analyticsBtn.type = 'button';
+    this.analyticsBtn.textContent = 'analytics ▸';
+    this.analyticsBtn.title = 'open the analyst dashboard (a)';
+    this.analyticsBtn.addEventListener('click', () => this.onAnalyticsToggle?.());
 
     this.statRows = el('div', 'stat-rows', systemPanel);
     const statKeys: Array<[string, string]> = [
@@ -248,6 +256,11 @@ export class Hud {
 
   setPaused(paused: boolean): void {
     this.pauseBadge.style.display = paused ? '' : 'none';
+  }
+
+  setAnalyticsOpen(open: boolean): void {
+    this.analyticsBtn.textContent = open ? 'analytics ▾' : 'analytics ▸';
+    this.analyticsBtn.classList.toggle('active', open);
   }
 
   /* ---------------------------- detail panel ---------------------------- */

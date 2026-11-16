@@ -116,6 +116,8 @@ export class ArchitectureMap {
 
   private labels = new Map<MapNode, HTMLElement>();
   private labelsRoot: HTMLElement;
+  private skillUsage = new Map<string, number>();
+  private usageMax = 1;
 
   constructor(labelsRoot: HTMLElement) {
     this.labelsRoot = labelsRoot;
@@ -344,8 +346,40 @@ export class ArchitectureMap {
   }
 
   private sizeFor(node: MapNode): number {
-    if (node === this.hovered || node === this.selected) return node.size * 1.45;
-    return node.size;
+    let size = node.size;
+    if (node.kind === 'skill') size *= this.usageMultiplier(node.label);
+    if (node === this.hovered || node === this.selected) size *= 1.45;
+    return size;
+  }
+
+  /** Skills swell by real invocation counts (from analytics). */
+  private usageMultiplier(skillName: string): number {
+    if (this.skillUsage.size === 0) return 1;
+    const key = skillName.toLowerCase();
+    let count = this.skillUsage.get(key) ?? 0;
+    if (count === 0) {
+      for (const [name, c] of this.skillUsage) {
+        if (name.includes(key) || key.includes(name)) {
+          count = Math.max(count, c);
+          break;
+        }
+      }
+    }
+    if (count === 0) return 1;
+    return 1 + Math.min(1, count / this.usageMax) * 0.9;
+  }
+
+  /** Feed skill invocation counts (lowercase names → counts). */
+  setSkillUsage(usage: Map<string, number>): void {
+    this.skillUsage = new Map();
+    let max = 1;
+    for (const [name, count] of usage) {
+      const key = name.toLowerCase();
+      this.skillUsage.set(key, (this.skillUsage.get(key) ?? 0) + count);
+      max = Math.max(max, this.skillUsage.get(key)!);
+    }
+    this.usageMax = max;
+    this.refreshSizes();
   }
 
   /* --------------------------- interaction --------------------------- */

@@ -133,8 +133,51 @@ export type ServerMessage = HelloMessage | EventMessage | SessionsMessage | Pong
 export interface ClientRequestMessage {
   kind: 'req';
   id: number;
-  method: 'getState' | 'getSessions' | 'getSession' | 'getTimeline' | 'getFeed' | 'simulate';
+  method:
+    | 'getState'
+    | 'getSessions'
+    | 'getSession'
+    | 'getTimeline'
+    | 'getAnalytics'
+    | 'getFeed'
+    | 'simulate';
   params?: Record<string, unknown>;
+}
+
+export interface ToolHealthEntry {
+  tool: string;
+  calls: number;
+  results: number;
+  ok: number;
+  failed: number;
+  okRate: number | null;
+  avgMs: number | null;
+}
+
+export interface AnalyticsResponse {
+  generatedAt: number;
+  scope: 'all' | 'real';
+  windowDays: number;
+  counts: {
+    total: number;
+    simulated: number;
+    real: number;
+    scoped: number;
+    toolCalls: number;
+    errors: number;
+    sessions: number;
+  };
+  byType: Record<string, number>;
+  toolHealth: ToolHealthEntry[];
+  activity: { days: Array<{ day: string; events: number; sessions: number }> };
+  models: Array<{ model: string; events: number; sessions: number }>;
+  heatmap: { rows: number[][] }; // 7 rows (Mon=0) × 24 cols
+  errors: {
+    total: number;
+    recent: Array<{ at: number; sessionId: string; simulated: boolean; error: string }>;
+  };
+  skillUsage: Array<{ skill: string; calls: number }>;
+  tokens: null | { input: number; output: number };
 }
 
 export interface TimelineFrame {
