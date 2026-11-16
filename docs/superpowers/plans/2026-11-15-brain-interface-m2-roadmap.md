@@ -16,17 +16,19 @@ so later milestones (replay, analytics) have a source of truth.
 
 ### M2-A: Live plugin verification + event recorder (small)
 
-- [ ] After Dan restarts opencode: confirm plugin POSTs land (add a one-line
+- [x] After Dan restarts opencode: confirm plugin POSTs land (add a one-line
       ingest log: first event per session per hour, not per-event spam).
-- [ ] Server: append every normalized event to `server/data/events/YYYYMMDD.jsonl`
+      → ingest logs first event per session + idle/error endings (done).
+- [x] Server: append every normalized event to `server/data/events/YYYYMMDD.jsonl`
       (append-only, daily files, gitignored). This is the replay + analytics
       raw feed. Rotation: close handle at midnight; never block ingest on IO
-      (fire-and-forget append).
+      (fire-and-forget append). → recorder.js (done, verified in smoke).
 - [ ] Plugin: defensively extract token usage from `session.updated` /
       message info if present (`info.tokens` shapes vary) → include as
       `tokens: { input?, output? }` on events. Probe first with a logging
-      pass, then wire the real field.
-- [ ] `GET /api/events?day=YYYYMMDD&limit=` → recorded events (for replay/analytics).
+      pass, then wire the real field. → DEFERRED to M3 (needs live plugin
+      session post-restart to probe event shapes).
+- [x] `GET /api/events?day=YYYYMMDD&limit=` → recorded events (for replay/analytics).
 
 **Verify:** smoke adds a check that jsonl grows after POST /ingest; restart a
 real session → server log shows plugin events (not simulated).
@@ -34,8 +36,8 @@ real session → server log shows plugin events (not simulated).
 ### M2-B: Architecture Map (the big visual win — data already served)
 
 **Data prep (server):**
-- [ ] `state.js`: return the FULL skills list (currently count + 40 sample) —
-      `skills.names: string[]`, plus per-skill source dir tag.
+- [x] `state.js`: return the FULL skills list — `skills.names: string[]`
+      (per-skill source tag deferred; not needed yet).
 - [ ] `GET /api/state` grows: skill → vendor/agent linkage guesses (v1:
       none, edges refined in M3 from real transcript usage).
 
@@ -95,12 +97,21 @@ camera moved / selection class applied); vision QA of the panel.
 **Verify:** qa-shot vs prior screenshots — vision A/B "which looks richer";
 FPS must stay ≥ 55 in headless (SwiftShader baseline was 63).
 
-### M2 acceptance
+### M2 acceptance — DONE (2026-11-15)
 
-- `npm run sim` → toggle MAP → full system graph with filters; click a node →
-  panel; back to BRAIN → click region → panel; click card → camera flies.
-- Smoke: all prior 8 checks + skills-full-list + events-recorded = 10 checks.
-- Event recorder files exist and contain the simulated session.
+- `npm run sim` → toggle MAP → full system graph (169 nodes); click a node →
+  detail panel; back to BRAIN → key 1-6 → region panel; click card → camera
+  flies + session highlighted.
+- Smoke: 10/10 checks (added skills-full-list + events-recorded).
+- `scripts/qa-interact.js`: **10/10 interaction checks** (click/Esc/mode toggle/
+  keyboard/card/Space-pause) — new reusable regression test.
+- `scripts/qa-shot.js ?mode=map` + vision QA: map polished, MAP highlighted,
+  labels readable, nothing clipped; brain mode unchanged + healthy.
+- Deferred (noted for M3): node-kind filter chips UI (module API exists:
+  `setKindVisible`), hover-glow on cards, PostProcessing bloom, token capture.
+- Gotcha logged: Vite dev-server cache can silently serve a stale CSS transform
+  after rapid saves — restart Vite after big CSS edits if rules seem missing
+  (verify rule presence via `scripts/cdp-eval.js`).
 
 ---
 

@@ -110,7 +110,9 @@ function collectSkills() {
     }
   }
   const all = [...names].sort();
-  return { count: all.length, sample: all.slice(0, 40) };
+  // Full names list — the Architecture Map renders every skill as a node;
+  // `sample` kept as an alias for older clients (only `count` was used there).
+  return { count: all.length, names: all, sample: all.slice(0, 40) };
 }
 
 function collectAgents() {

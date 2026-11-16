@@ -91,7 +91,7 @@ export interface SystemState {
   providers: ProviderInfo[];
   mcpServers: McpServerInfo[];
   plugins: string[];
-  skills: { count: number; sample: string[] };
+  skills: { count: number; names: string[]; sample?: string[] };
   agents: string[];
   generatedAt: number;
 }

@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Hub } from './hub.js';
 import { Ingest } from './ingest.js';
+import { Recorder, currentDay } from './recorder.js';
 import { SessionStore } from './sessions.js';
 import { startWatcher } from './watcher.js';
 import { Simulator } from './simulator.js';
@@ -37,9 +38,12 @@ store.refreshFromDisk();
 
 const hub = new Hub({ log, onClientMessage: handleClientMessage });
 
+const recorder = new Recorder();
+
 const ingest = new Ingest({
   hub,
   store,
+  recorder,
   log: (m) => log(`ingest: ${m}`),
 });
 
@@ -183,6 +187,14 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/feed') {
       json(res, 200, { feed: ingest.feed.slice(-100) });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/events') {
+      const day = url.searchParams.get('day') || currentDay();
+      const limit = Number(url.searchParams.get('limit') || 2000);
+      const events = recorder.read(day, limit);
+      json(res, 200, { day, count: events.length, events, days: recorder.days() });
       return;
     }
 

@@ -99,6 +99,17 @@ export class Hud {
   private renderedEvents = 0;
   private stats: Record<string, HTMLElement> = {};
   private store: Store;
+  private modeButtons = new Map<string, HTMLElement>();
+  private pauseBadge!: HTMLElement;
+  private detailPanel!: HTMLElement;
+  private detailBody!: HTMLElement;
+  private detailTitle!: HTMLElement;
+  private detailChip!: HTMLElement;
+
+  /** Set by main.ts: fired when a session card is clicked. */
+  onSessionSelect: ((id: string) => void) | null = null;
+  /** Set by main.ts: fired when the brain/map mode pill is clicked. */
+  onModeChange: ((mode: string) => void) | null = null;
 
   constructor(engine: Engine, store: Store = defaultStore) {
     this.store = store;
@@ -124,6 +135,37 @@ export class Hud {
 
     this.sessionsList = el('div', undefined, sessionsPanel);
     this.sessionsList.id = 'sessions-list';
+
+    /* ---------------- mode pill (top center) ---------------- */
+    const modePill = el('div', 'panel mode-pill', this.root);
+    modePill.id = 'panel-mode';
+    for (const [key, label] of [
+      ['brain', 'BRAIN'],
+      ['map', 'MAP'],
+    ] as Array<[string, string]>) {
+      const btn = el('button', 'mode-btn', modePill);
+      btn.type = 'button';
+      btn.textContent = label;
+      btn.dataset.mode = key;
+      btn.addEventListener('click', () => this.onModeChange?.(key));
+      this.modeButtons.set(key, btn);
+    }
+    this.pauseBadge = el('span', 'badge connecting', modePill);
+    this.pauseBadge.textContent = '⏸ PAUSED';
+    this.pauseBadge.style.display = 'none';
+
+    /* ---------------- detail panel (right, slide-in) ---------------- */
+    this.detailPanel = el('div', 'panel', this.root);
+    this.detailPanel.id = 'panel-detail';
+    this.detailPanel.style.display = 'none';
+    const detailHead = el('div', 'panel-head', this.detailPanel);
+    this.detailTitle = el('div', 'detail-title', detailHead);
+    this.detailChip = el('span', 'feed-chip start', detailHead);
+    const closeBtn = el('button', 'detail-close', detailHead);
+    closeBtn.type = 'button';
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => this.hideDetail());
+    this.detailBody = el('div', 'detail-body', this.detailPanel);
 
     /* ---------------- system panel ---------------- */
     const systemPanel = el('div', 'panel', this.root);
@@ -192,6 +234,67 @@ export class Hud {
     this.renderNewFeedItems();
   }
 
+  /* ------------------------------ modes ------------------------------ */
+
+  setMode(mode: string): void {
+    for (const [key, btn] of this.modeButtons) {
+      btn.classList.toggle('active', key === mode);
+    }
+  }
+
+  setPaused(paused: boolean): void {
+    this.pauseBadge.style.display = paused ? '' : 'none';
+  }
+
+  /* ---------------------------- detail panel ---------------------------- */
+
+  showDetail(info: { title: string; kind?: string; rows: Array<[string, string]> }, opts: { belowSystem?: boolean } = {}): void {
+    this.detailTitle.textContent = info.title;
+    this.detailChip.textContent = info.kind ?? '';
+    this.detailChip.className = `feed-chip ${this.chipClassFor(info.kind)}`;
+    this.detailPanel.classList.toggle('below-system', opts.belowSystem === true);
+    this.detailBody.replaceChildren();
+    for (const [k, v] of info.rows) {
+      const row = el('div', 'detail-row', this.detailBody);
+      el('span', 'dk', row).textContent = k;
+      el('span', 'dv', row).textContent = v;
+    }
+    if (this.detailPanel.style.display === 'none') {
+      this.detailPanel.style.display = '';
+      animate(this.detailPanel, {
+        opacity: [0, 1],
+        translateX: [24, 0],
+        duration: 320,
+        ease: 'out(3)',
+      });
+    }
+  }
+
+  hideDetail(): void {
+    if (this.detailPanel.style.display === 'none') return;
+    animate(this.detailPanel, {
+      opacity: 0,
+      translateX: 24,
+      duration: 200,
+      ease: 'in(2)',
+      onComplete: () => {
+        this.detailPanel.style.display = 'none';
+      },
+    });
+  }
+
+  private chipClassFor(kind?: string): string {
+    switch (kind) {
+      case 'provider': return 'user';
+      case 'agent': return 'reason';
+      case 'skill': return 'result';
+      case 'mcp': return 'tool';
+      case 'plugin': return 'err';
+      case 'region': return 'start';
+      default: return 'start';
+    }
+  }
+
   /* ----------------------------- badges ----------------------------- */
 
   private renderBadges(): void {
@@ -242,8 +345,9 @@ export class Hud {
   }
 
   private buildCard(id: string): CardRefs {
-    const elCard = el('div', 'session-card idle', this.sessionsList);
+    const elCard = el('div', 'session-card idle clickable', this.sessionsList);
     elCard.dataset.sessionId = id;
+    elCard.addEventListener('click', () => this.onSessionSelect?.(id));
     const title = el('div', 'session-title', elCard);
     const meta = el('div', 'session-meta', elCard);
     const dot = el('span', 'model-dot', meta);

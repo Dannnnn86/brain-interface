@@ -71,6 +71,11 @@ try {
 
   const state = await (await fetch(`${BASE}/api/state`)).json();
   check('system state has providers', Array.isArray(state.providers) && state.providers.length >= 1, `${state.providers?.length ?? 0} providers, ${state.mcpServers?.length ?? 0} mcp`);
+  check(
+    'system state serves full skills list',
+    Array.isArray(state.skills?.names) && state.skills.names.length > 50,
+    `${state.skills?.names?.length ?? 0} skill names`,
+  );
 
   const sessions1 = await (await fetch(`${BASE}/api/sessions`)).json();
   check('sessions endpoint lists simulated sessions', Array.isArray(sessions1.sessions) && sessions1.sessions.length >= 1, `${sessions1.sessions?.length ?? 0} sessions`);
@@ -118,6 +123,15 @@ try {
 
   const simEvents = inbox.filter((m) => m.kind === 'event' && m.event?.simulated);
   check('simulator events flowing', simEvents.length >= 1, `${simEvents.length} simulated events in window`);
+
+  // Event recorder: the marker event must be durably recorded in today's jsonl.
+  const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const recorded = await (await fetch(`${BASE}/api/events?day=${day}&limit=500`)).json();
+  check(
+    'events durably recorded to jsonl',
+    Array.isArray(recorded.events) && recorded.events.some((e) => e.sessionId === marker),
+    `${recorded.count ?? 0} events today`,
+  );
 
   ws.close();
   kill();

@@ -313,6 +313,133 @@ html, body {
 
 .feed-item .ses { color: var(--neural-text-dim); flex: none; }
 
+/* --------------------------- mode pill --------------------------- */
+
+#panel-mode {
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+}
+
+.mode-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--neural-text-dim);
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 6px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.mode-btn:hover { color: var(--neural-text); }
+
+.mode-btn.active {
+  color: var(--neural-background);
+  background: linear-gradient(120deg, var(--neural-afferent), #7ee8ff);
+  box-shadow: 0 0 18px rgba(0, 212, 255, 0.45);
+}
+
+/* --------------------------- detail panel --------------------------- */
+
+#panel-detail {
+  top: 330px;
+  right: 16px;
+  width: 260px;
+  max-height: calc(100vh - 380px);
+  display: flex;
+  flex-direction: column;
+}
+
+#panel-detail.below-system { top: 330px; }
+
+.detail-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+}
+
+.detail-close {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--neural-text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex: none;
+}
+
+.detail-close:hover { color: var(--neural-text); }
+
+.detail-body {
+  padding: 10px 14px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--neural-border) transparent;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.detail-row .dk {
+  flex: none;
+  min-width: 64px;
+  color: var(--neural-text-dim);
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.detail-row .dv {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  word-break: break-word;
+}
+
+/* --------------------------- map labels --------------------------- */
+
+.map-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  color: rgba(160, 190, 230, 0.5);
+  text-shadow: 0 0 8px rgba(0, 120, 255, 0.5);
+  transition: color var(--transition-fast);
+}
+
+.map-label[data-emphasis='strong'] {
+  color: #ffffff;
+  text-shadow: 0 0 14px currentColor, 0 0 24px rgba(0, 212, 255, 0.8);
+}
+
+.map-label[data-emphasis='dim'] { opacity: 0.65; }
+
+.session-card.clickable { cursor: pointer; }
+
 /* --------------------------- legend --------------------------- */
 
 #panel-legend {

@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { animate } from 'animejs';
 
 export type FrameHook = (dt: number, t: number) => void;
 
@@ -18,6 +19,8 @@ export interface Engine {
   readonly fps: number;
   onFrame(hook: FrameHook): void;
   start(): void;
+  /** Smoothly move the camera + orbit target. Cancels any in-flight flight. */
+  flyTo(position: THREE.Vector3, target: THREE.Vector3, ms?: number): void;
   readonly size: { w: number; h: number };
 }
 
@@ -101,6 +104,8 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
     renderer.render(scene, camera);
   });
 
+  let flight: { cancel: () => void } | null = null;
+
   const engine: Engine = {
     scene,
     camera,
@@ -116,9 +121,47 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
     start() {
       // setAnimationLoop already running
     },
+    flyTo(position, target, ms = 950) {
+      flight?.cancel();
+      const fromPos = camera.position.clone();
+      const fromTgt = controls.target.clone();
+      const obj = { t: 0 };
+      const animation = animate(obj, {
+        t: 1,
+        duration: ms,
+        ease: 'inOut(2)',
+        onUpdate: () => {
+          camera.position.lerpVectors(fromPos, position, obj.t);
+          controls.target.lerpVectors(fromTgt, target, obj.t);
+          controls.update();
+        },
+      }) as unknown as { cancel?: () => void; pause?: () => void };
+      flight = { cancel: () => animation.cancel?.() };
+    },
   };
 
   return engine;
+}
+
+/** Thin glowing ring texture (shockwaves, halos). */
+export function makeRingTexture(sizePx = 256): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = sizePx;
+  c.height = sizePx;
+  const ctx = c.getContext('2d')!;
+  const r = sizePx / 2;
+  const g = ctx.createRadialGradient(r, r, r * 0.62, r, r, r * 0.98);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.55, 'rgba(255,255,255,0.35)');
+  g.addColorStop(0.78, 'rgba(255,255,255,0.95)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(r, r, r * 0.99, 0, Math.PI * 2);
+  ctx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.needsUpdate = true;
+  return tex;
 }
 
 /** Shared soft radial-gradient texture (glow dot) for points and sprites. */

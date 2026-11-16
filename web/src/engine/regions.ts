@@ -47,8 +47,13 @@ interface OrbState {
 
 export interface Regions {
   anchors: Record<RegionName, THREE.Vector3>;
+  /** Sprites exposed for CPU raycasting (click-to-focus). */
+  pickables: THREE.Sprite[];
   update(dt: number, t: number, camera: THREE.Camera, size: { w: number; h: number }): void;
   flashRegion(name: RegionName, colorHex: number, holdMs?: number): void;
+  /** Global opacity multiplier (mode crossfades). */
+  setFade(v: number): void;
+  setVisible(v: boolean): void;
 }
 
 export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regions {
@@ -91,9 +96,24 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
   scene.add(group);
 
   const projected = new THREE.Vector3();
+  let fade = 1;
+  let visible = true;
 
   return {
     anchors,
+    pickables: orbs.map((o) => o.sprite),
+
+    setFade(v) {
+      fade = THREE.MathUtils.clamp(v, 0, 1);
+    },
+
+    setVisible(v) {
+      visible = v;
+      group.visible = v;
+      if (!v) {
+        for (const orb of orbs) orb.labelEl.style.display = 'none';
+      }
+    },
 
     flashRegion(name, colorHex, holdMs = 900) {
       const orb = orbs.find((o) => o.def.name === name);
@@ -105,6 +125,7 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
     },
 
     update(_dt, t, camera, size) {
+      if (!visible) return;
       const now = performance.now();
       for (const orb of orbs) {
         // Gentle independent pulse.
@@ -114,11 +135,11 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
         // Color: flash lerp or base pulse.
         if (orb.flash && now < orb.flash.until) {
           orb.material.color.copy(orb.flash.color);
-          orb.material.opacity = 0.95;
+          orb.material.opacity = 0.95 * fade;
         } else {
           orb.flash = null;
           orb.material.color.copy(orb.baseTint).multiplyScalar(0.82 + Math.sin(t * 0.9 + orb.phase) * 0.14);
-          orb.material.opacity = 0.5 + Math.sin(t * 0.8 + orb.phase) * 0.1;
+          orb.material.opacity = (0.5 + Math.sin(t * 0.8 + orb.phase) * 0.1) * fade;
         }
 
         // Project label.
@@ -133,9 +154,9 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
         const y = (-projected.y * 0.5 + 0.5) * size.h;
         orb.labelEl.style.left = `${x.toFixed(1)}px`;
         orb.labelEl.style.top = `${(y + 30).toFixed(1)}px`;
-        // Fade with depth toward edges of the screen.
+        // Fade with depth toward edges of the screen + global fade.
         const edge = Math.min(1, (1 - Math.abs(projected.x)) * 2.4);
-        orb.labelEl.style.opacity = (0.28 + 0.72 * edge).toFixed(2);
+        orb.labelEl.style.opacity = ((0.28 + 0.72 * edge) * fade).toFixed(2);
       }
     },
   };

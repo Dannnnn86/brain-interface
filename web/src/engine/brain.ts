@@ -17,7 +17,7 @@
  * with occasional bright sparkles.
  */
 import * as THREE from 'three/webgpu';
-import { instancedBufferAttribute, texture, uv, vec2, vec4 } from 'three/tsl';
+import { instancedBufferAttribute, texture, uniform, uv, vec2, vec4 } from 'three/tsl';
 import { makeGlowTexture } from './engine.js';
 
 const BRAIN_COUNT = 44_000;
@@ -35,6 +35,9 @@ const SPARKLE = new THREE.Color(0xd9fbff);
 export interface Brain {
   group: THREE.Group;
   update(dt: number, t: number): void;
+  /** Global opacity multiplier (mode crossfades). */
+  setFade(v: number): void;
+  setVisible(v: boolean): void;
 }
 
 interface InstancedSprite extends THREE.Sprite {
@@ -51,7 +54,7 @@ function buildCloud(
   count: number,
   sample: (i: number, out: Sample) => void,
   sizeAttenuation: boolean,
-): InstancedSprite {
+): CloudHandle {
   const positions = new Float32Array(count * 3);
   const colors = new Float32Array(count * 4);
   const sizes = new Float32Array(count);
@@ -71,13 +74,14 @@ function buildCloud(
   }
 
   const glow = makeGlowTexture();
+  const fade = uniform(1);
   const material = new THREE.PointsNodeMaterial();
   material.positionNode = instancedBufferAttribute(new THREE.InstancedBufferAttribute(positions, 3), 'vec3' as const);
   material.sizeNode = vec2(instancedBufferAttribute(new THREE.InstancedBufferAttribute(sizes, 1), 'float' as const));
   material.colorNode = instancedBufferAttribute(
     new THREE.InstancedBufferAttribute(colors, 4),
     'vec4' as const,
-  ).mul(texture(glow, uv()));
+  ).mul(texture(glow, uv())).mul(fade);
   material.sizeAttenuation = sizeAttenuation;
   material.transparent = true;
   material.blending = THREE.AdditiveBlending;
@@ -86,11 +90,16 @@ function buildCloud(
   const sprite = new THREE.Sprite(material) as InstancedSprite;
   sprite.count = count;
   sprite.frustumCulled = false;
-  return sprite;
+  return { sprite, fade };
+}
+
+interface CloudHandle {
+  sprite: InstancedSprite;
+  fade: { value: number };
 }
 
 /** Two-lobed brain shell (44k points). */
-function buildBrainCloud(): InstancedSprite {
+function buildBrainCloud(): CloudHandle {
   const tmp = new THREE.Color();
   return buildCloud(
     BRAIN_COUNT,
@@ -139,7 +148,7 @@ function buildBrainCloud(): InstancedSprite {
 }
 
 /** Sparse outer halo around the brain. */
-function buildHalo(): InstancedSprite {
+function buildHalo(): CloudHandle {
   const tmp = new THREE.Color();
   return buildCloud(
     HALO_COUNT,
@@ -161,7 +170,7 @@ function buildHalo(): InstancedSprite {
 }
 
 /** Distant starfield (pixel-sized, no attenuation). */
-function buildStars(): InstancedSprite {
+function buildStars(): CloudHandle {
   const tmp = new THREE.Color();
   return buildCloud(
     STAR_COUNT,
@@ -188,23 +197,32 @@ export function createBrain(scene: THREE.Scene): Brain {
   const brain = buildBrainCloud();
   const halo = buildHalo();
   const stars = buildStars();
-  group.add(brain, halo, stars);
+  group.add(brain.sprite, halo.sprite, stars.sprite);
 
   scene.add(group);
 
+  const fades = [brain.fade, halo.fade, stars.fade];
   let wobble = 0;
   let breathe = 0;
 
   return {
     group,
+    setFade(v) {
+      for (const f of fades) f.value = v;
+    },
+    setVisible(v) {
+      group.visible = v;
+    },
     update(dt, t) {
       wobble += dt;
       breathe += dt;
-      brain.rotation.y = Math.sin(wobble * 0.11) * 0.07;
-      brain.rotation.x = Math.sin(wobble * 0.07) * 0.03;
+      brain.sprite.rotation.y = Math.sin(wobble * 0.11) * 0.07;
+      brain.sprite.rotation.x = Math.sin(wobble * 0.07) * 0.03;
       const scale = 1 + Math.sin(breathe * 0.5) * 0.006;
       group.scale.setScalar(scale);
-      stars.rotation.y += dt * 0.004;
+      // stars drift slowly + slight parallax
+      stars.sprite.rotation.y += dt * 0.004;
+      stars.sprite.rotation.x = Math.sin(t * 0.02) * 0.025;
     },
   };
 }

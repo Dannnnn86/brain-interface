@@ -153,6 +153,27 @@ try {
         feedItems: document.querySelectorAll('.feed-item').length,
         regionLabels: document.querySelectorAll('.region-label').length,
         labelsVisible: Array.from(document.querySelectorAll('.region-label')).filter(n => n.style.display !== 'none').length,
+        mode: b?.mode ? b.mode() : null,
+        mapNodes: b?.map ? b.map.nodeCount() : null,
+        mapVisible: b?.map ? b.map.group.visible : null,
+        mapLabelsVisible: Array.from(document.querySelectorAll('.map-label')).filter(n => n.style.display !== 'none').length,
+        detailOpen: document.querySelector('#panel-detail')?.style.display !== 'none' ?? false,
+        modeButtons: document.querySelectorAll('.mode-btn').length,
+        activeModeBtn: document.querySelector('.mode-btn.active')?.textContent ?? null,
+        pillRect: (() => {
+          const el = document.getElementById('panel-mode');
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+        })(),
+        activeBtnRect: (() => {
+          const el = document.querySelector('.mode-btn.active');
+          if (!el) return null;
+          const r = el.getBoundingClientRect();
+          return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width) };
+        })(),
+        cameraPos: b?.engine ? { x: Math.round(b.engine.camera.position.x), y: Math.round(b.engine.camera.position.y), z: Math.round(b.engine.camera.position.z) } : null,
+        labelSample: Array.from(document.querySelectorAll('.map-label')).filter(n => n.style.display !== 'none').slice(0, 6).map(n => ({ t: n.textContent, l: n.style.left, top: n.style.top })),
       };
     })()`,
     returnByValue: true,

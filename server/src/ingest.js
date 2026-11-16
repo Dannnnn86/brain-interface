@@ -15,15 +15,18 @@ const SWEEP_MS = 60_000;
 
 export class Ingest {
   /**
-   * @param {{ hub: import('./hub.js').Hub, store: import('./sessions.js').SessionStore, log?: (m: string) => void }} deps
+   * @param {{ hub: import('./hub.js').Hub, store: import('./sessions.js').SessionStore, recorder?: import('./recorder.js').Recorder, log?: (m: string) => void }} deps
    */
-  constructor({ hub, store, log }) {
+  constructor({ hub, store, recorder, log }) {
     this.hub = hub;
     this.store = store;
+    this.recorder = recorder || null;
     this.log = log || (() => {});
     /** @type {import('../../shared/protocol.d.ts').SystemEvent[]} */
     this.feed = [];
     this.sessionsTimer = null;
+    /** sessions already announced in the log (avoid per-event spam) */
+    this.seenSessions = new Set();
 
     this.sweepTimer = setInterval(() => this.sweepIdle(), SWEEP_MS);
     this.sweepTimer.unref?.();
@@ -36,6 +39,19 @@ export class Ingest {
 
     this.feed.push(event);
     if (this.feed.length > FEED_MAX) this.feed.splice(0, this.feed.length - FEED_MAX);
+
+    this.recorder?.append(event);
+
+    // Log once per session (first event) plus each notable ending.
+    if (!this.seenSessions.has(event.sessionId)) {
+      if (this.seenSessions.size > 500) this.seenSessions.clear();
+      this.seenSessions.add(event.sessionId);
+      this.log(
+        `session ${event.sessionId.slice(-8)} (${event.simulated ? 'sim' : 'live'}) started — ${event.title || 'untitled'}`,
+      );
+    } else if (event.type === 'session.idle' || event.type === 'session.error') {
+      this.log(`session ${event.sessionId.slice(-8)} ${event.type === 'session.idle' ? 'went idle' : `error: ${event.error || ''}`}`);
+    }
 
     this.updateLive(event);
 
