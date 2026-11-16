@@ -20,16 +20,20 @@ A single-page WebGPU app that renders opencode's whole system as an interactive 
 
 ## Status
 
-**Milestone 1 (Foundation) — DONE (2026-11-15)**
+**Milestones 1-3 — DONE (2026-11-15)**
 
-- Server (node, ws+chokidar): REST API, WS hub, vault watcher (403 sessions parsed),
-  system-state reader (8 providers / 18 MCP / 111 skills), simulator, ingest pipeline
-- Web (Vite+TS, three 0.187 WebGPU, animejs): 44k-point instanced sprite brain cloud,
-  6 labeled region orbs, neural impulse system, HUD (cards/stats/feed/legend)
-- Plugin reporter deployed to `~/.config/opencode/plugins/brain-interface/` and
-  registered in `opencode.jsonc` (takes effect next opencode restart)
-- Tests: `node scripts/smoke.js` (8/8), `scripts/qa-shot.js` headless visual QA
-- Run: `npm run sim` (demo) or `npm run dev` (live) at the repo root → http://localhost:4200
+- M1 Foundation: server (REST + WS + vault watcher + simulator), WebGPU brain
+  cloud (44k points), region orbs, impulses, HUD; reporter plugin LIVE (real
+  opencode sessions recording, incl. this project's own sessions)
+- M2 Explorer: Architecture Map (169 nodes, click-to-inspect, BRAIN|MAP pill),
+  focus layer (regions 1-6, session highlight, Space pause, Esc), durable event
+  recorder (`data/events/*.jsonl`)
+- M3 Time Machine: replay any session — timeline API (recorded/transcript
+  sources, 60s idle-gap compression), session picker, timeline bar (0.5-100x,
+  scrub, bookmarks, stepping), replay log; `?mode=replay&session=` deep links
+- Tests: smoke 12/12, qa-interact 16/16, qa-shot + cdp-eval visual QA tooling
+- Run: `npm run sim` (demo) or `npm run dev` (live) → http://localhost:4200
+- Next: M4 Analyst (analytics API + dashboards + token capture + heatmap)
 
 ## Design & Plan
 

@@ -55,6 +55,7 @@ export class ImpulseSystem {
   private fade = 1;
   private paused = false;
   private highlight: string | null = null;
+  private ambient = true;
 
   constructor(
     scene: THREE.Scene,
@@ -201,6 +202,27 @@ export class ImpulseSystem {
 
   setFade(v: number): void {
     this.fade = THREE.MathUtils.clamp(v, 0, 1);
+  }
+
+  /** Kill every in-flight impulse (replay seeks, mode resets). */
+  clearAll(): void {
+    for (const imp of this.pool) {
+      if (!imp.active) continue;
+      imp.active = false;
+      imp.head.visible = false;
+      for (const g of imp.ghosts) g.visible = false;
+      imp.material.opacity = 0;
+    }
+    for (const wave of this.shockwaves) {
+      wave.active = false;
+      wave.sprite.visible = false;
+      wave.material.opacity = 0;
+    }
+  }
+
+  /** Idle "breathing" impulses — off during replay so nothing pollutes it. */
+  setAmbient(on: boolean): void {
+    this.ambient = on;
   }
 
   setPaused(p: boolean): void {
@@ -372,7 +394,7 @@ export class ImpulseSystem {
     }
 
     // Idle ambience — a faint internal pulse keeps the brain alive.
-    if (!this.paused) {
+    if (!this.paused && this.ambient) {
       const now = performance.now();
       if (now - this.lastSpawnAt > 4200 && Math.random() < dt * 0.35) {
         this.spawn(this.anchors.brainstem, this.anchors.frontal, PALETTE.internal, {

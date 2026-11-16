@@ -22,8 +22,11 @@ import { store } from './state/store.js';
 import { connect, rpc } from './net/client.js';
 import { Hud } from './ui/hud.js';
 import { ArchitectureMap } from './modules/architectureMap.js';
+import { ReplayEngine } from './modules/replayEngine.js';
+import { ReplayPicker, TimelineBar, ReplayLog, frameToLogEntry } from './ui/replayUi.js';
+import type { ReplayTimeline, SystemEvent, TimelineFrame } from '@shared/protocol.js';
 
-type Mode = 'brain' | 'map';
+type Mode = 'brain' | 'map' | 'replay';
 
 const REGION_ORDER: RegionName[] = ['frontal', 'temporal', 'parietal', 'occipital', 'cerebellum', 'brainstem'];
 
@@ -49,9 +52,43 @@ async function boot(): Promise<void> {
   const map = new ArchitectureMap(labelsRoot);
   engine.scene.add(map.group);
 
-  store.onFeedItem.push((event) => impulses.onEvent(event));
+  /* ---------------------------- replay stack ---------------------------- */
+
+  const replay = new ReplayEngine();
+  let replayActive = false; // a timeline is loaded
+  let replayId: string | null = null;
+
+  // Live events feed impulses only when no replay owns the scene.
+  store.onFeedItem.push((event) => {
+    if (!replayActive) impulses.onEvent(event);
+  });
+
+  replay.setClearSink(() => impulses.clearAll());
+  replay.setFrameSink((frame: TimelineFrame) => {
+    impulses.onEvent(frameToSystemEvent(frame));
+    const entry = frameToLogEntry(frame);
+    replayLog.push(entry);
+  });
+  replay.setStateSink((state) => timelineBar.setState(state));
 
   const hud = new Hud(engine);
+  const picker = new ReplayPicker(hud.root);
+  const timelineBar = new TimelineBar(hud.root);
+  const replayLog = new ReplayLog(hud.root);
+
+  function frameToSystemEvent(frame: TimelineFrame): SystemEvent {
+    return {
+      type: frame.type,
+      sessionId: replayId ?? 'replay',
+      at: Date.now(),
+      tool: frame.tool,
+      argsSummary: frame.argsSummary,
+      ok: frame.ok,
+      durationMs: frame.durationMs,
+      text: frame.text,
+      error: frame.error,
+    };
+  }
 
   /* ------------------------- mode management ------------------------- */
 
@@ -91,12 +128,63 @@ async function boot(): Promise<void> {
     map.build(st);
   }
 
+  /** Resolve once the WebSocket is live (URL deep-links race the connect). */
+  function whenConnected(timeoutMs = 8000): Promise<boolean> {
+    if (store.connection === 'live') return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const started = Date.now();
+      const unsub = store.subscribe(() => {
+        if (store.connection === 'live') {
+          unsub();
+          resolve(true);
+        } else if (Date.now() - started > timeoutMs) {
+          unsub();
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  function exitReplay(): void {
+    replay.pause();
+    replay.unload();
+    replayActive = false;
+    replayId = null;
+    picker.hide();
+    timelineBar.hide();
+    replayLog.hide();
+    replayLog.clear();
+    impulses.setAmbient(true);
+  }
+
+  async function loadReplay(id: string): Promise<boolean> {
+    try {
+      if (!(await whenConnected())) throw new Error('no connection');
+      const timeline = (await rpc('getTimeline', { id })) as ReplayTimeline;
+      replayActive = true;
+      replayId = id;
+      replay.load(timeline);
+      timelineBar.setTimeline(timeline);
+      picker.hide();
+      timelineBar.show();
+      replayLog.show();
+      replayLog.clear();
+      return true;
+    } catch (err) {
+      console.warn('[brain] timeline load failed:', err);
+      if (mode === 'replay') picker.show(store.sessions);
+      return false;
+    }
+  }
+
   async function setMode(next: Mode): Promise<void> {
     if (next === mode) return;
+    const wasReplay = mode === 'replay';
     mode = next;
     hud.setMode(next);
     hud.hideDetail();
     if (next === 'map') {
+      if (wasReplay) exitReplay();
       applyMapData();
       // Refresh system state in the background; rebuild if it changed.
       rpc('getState')
@@ -110,7 +198,21 @@ async function boot(): Promise<void> {
         .catch(() => {});
       fadeTo({ brain: 0, regions: 0, impulses: 0, map: 1 });
       engine.flyTo(MAP_VIEW.pos, MAP_VIEW.target);
+    } else if (next === 'replay') {
+      map.setSelected(null);
+      map.setHover(null);
+      fadeTo({ brain: 1, regions: 1, impulses: 1, map: 0 });
+      engine.flyTo(BRAIN_VIEW.pos, BRAIN_VIEW.target);
+      impulses.setAmbient(false);
+      if (replayActive && replay.timeline) {
+        timelineBar.setTimeline(replay.timeline);
+        timelineBar.show();
+        replayLog.show();
+      } else {
+        picker.show(store.sessions);
+      }
     } else {
+      if (wasReplay) exitReplay();
       map.setSelected(null);
       map.setHover(null);
       fadeTo({ brain: 1, regions: 1, impulses: 1, map: 0 });
@@ -123,6 +225,14 @@ async function boot(): Promise<void> {
   hud.onModeChange = (m) => void setMode(m as Mode);
   hud.onSessionSelect = (id) => focusSession(id);
   hud.setMode(mode); // mark the default mode button active at boot
+
+  picker.onPick = (id) => void loadReplay(id);
+  picker.onClose = () => void setMode('brain');
+  timelineBar.onPlayToggle = () => replay.toggle();
+  timelineBar.onSpeed = (s) => replay.setSpeed(s);
+  timelineBar.onSeek = (t) => replay.seek(t);
+  timelineBar.onStep = (dir) => replay.step(dir);
+  timelineBar.onClose = () => void setMode('brain');
 
   hud.render(engine);
   store.subscribe(() => {
@@ -273,6 +383,33 @@ async function boot(): Promise<void> {
 
   window.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    if (mode === 'replay') {
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          replay.toggle();
+          return;
+        case 'ArrowRight':
+          e.preventDefault();
+          replay.step(1);
+          return;
+        case 'ArrowLeft':
+          e.preventDefault();
+          replay.step(-1);
+          return;
+        case 'Escape':
+          void setMode('brain');
+          return;
+        case 'm':
+        case 'M':
+          void setMode('map');
+          return;
+        default:
+          return;
+      }
+    }
+
     const num = Number(e.key);
     if (num >= 1 && num <= 6) {
       focusRegion(REGION_ORDER[num - 1]);
@@ -291,6 +428,10 @@ async function boot(): Promise<void> {
       case 'M':
         void setMode(mode === 'map' ? 'brain' : 'map');
         break;
+      case 'r':
+      case 'R':
+        void setMode('replay');
+        break;
       default:
         break;
     }
@@ -303,6 +444,7 @@ async function boot(): Promise<void> {
     regions.update(dt, t, engine.camera, engine.size);
     impulses.update(dt, t);
     map.update(dt, t, engine.camera, engine.size);
+    replay.update(dt);
   });
 
   engine.start();
@@ -315,18 +457,27 @@ async function boot(): Promise<void> {
     map,
     impulses,
     hud,
+    replay,
+    loadReplay,
+    replayState: () => ({ active: replayActive, id: replayId, ...replay.state }),
     mode: () => mode,
     setMode,
     focusRegion,
     focusSession,
   };
 
-  // Deep-link: ?mode=map jumps straight to the constellation.
+  // Deep-link: ?mode=map | replay; &session=<id> loads a replay or focuses.
   const params = new URLSearchParams(window.location.search);
-  if (params.get('mode') === 'map') void setMode('map');
-  if (params.get('mode') === 'brain') hud.setMode('brain');
-  const session = params.get('session');
-  if (session) focusSession(session);
+  const urlMode = params.get('mode');
+  const urlSession = params.get('session');
+  if (urlMode === 'map') void setMode('map');
+  if (urlMode === 'replay') {
+    void setMode('replay').then(() => {
+      if (urlSession) void loadReplay(urlSession);
+    });
+  } else if (urlSession) {
+    focusSession(urlSession);
+  }
 
   // Dismiss the boot overlay after a beat so the first frames land smoothly.
   requestAnimationFrame(() =>

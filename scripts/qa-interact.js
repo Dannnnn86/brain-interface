@@ -209,6 +209,71 @@ try {
   check('Space toggles PAUSED badge on', paused1 === true);
   check('Space toggles PAUSED badge off', paused2 === false);
 
+  /* ---- 7. REPLAY: pill → picker ---- */
+  await evaluate(`document.querySelector('.mode-btn[data-mode="replay"]').click()`);
+  await sleep(800);
+  const pickerOpen = await evaluate(`({
+    mode: window.__brain?.mode?.() ?? null,
+    picker: document.getElementById('panel-picker')?.style.display !== 'none',
+    rows: document.querySelectorAll('.picker-row').length,
+  })`);
+  check('replay mode opens session picker', pickerOpen.mode === 'replay' && pickerOpen.picker && pickerOpen.rows > 5, `${pickerOpen.rows} rows`);
+
+  /* ---- 8. REPLAY: load a timeline + play ---- */
+  const loaded = await evaluate(`(async () => {
+    const b = window.__brain;
+    const candidate = b.store.sessions.find((s) => s.simulated === true && s.status !== 'live')
+      || b.store.sessions.find((s) => s.simulated === true)
+      || b.store.sessions[0];
+    if (!candidate) return { ok: false, why: 'no session' };
+    const ok = await b.loadReplay(candidate.id);
+    await new Promise((r) => setTimeout(r, 400));
+    const st = b.replayState();
+    return { ok, id: candidate.id, duration: st.duration, frames: st.frameCount,
+      barVisible: document.getElementById('panel-replay')?.style.display !== 'none',
+      logVisible: document.getElementById('panel-replay-log')?.style.display !== 'none' };
+  })()`);
+  check(
+    'timeline loads and timeline bar shows',
+    loaded?.ok === true && loaded.barVisible === true && loaded.duration > 0 && loaded.frames > 3,
+    loaded ? `${loaded.id}: ${loaded.frames} frames, ${Math.round(loaded.duration)}s` : 'null',
+  );
+
+  const played = await evaluate(`(async () => {
+    const b = window.__brain;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    await new Promise((r) => setTimeout(r, 1500));
+    return b.replayState();
+  })()`);
+  check('Space starts playback (t advances)', played?.playing === true && played.t > 0.2, played ? `t=${played.t.toFixed(1)}` : 'null');
+
+  const paused3 = await evaluate(`(async () => {
+    const b = window.__brain;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    await new Promise((r) => setTimeout(r, 300));
+    return b.replayState();
+  })()`);
+  check('Space pauses playback', paused3?.playing === false);
+
+  const stepped = await evaluate(`(async () => {
+    const b = window.__brain;
+    const before = b.replayState().index;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    await new Promise((r) => setTimeout(r, 400));
+    const after = b.replayState().index;
+    return { before, after };
+  })()`);
+  check('ArrowRight steps a frame', stepped && stepped.after > stepped.before, `${stepped?.before} → ${stepped?.after}`);
+
+  const exited = await evaluate(`(async () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await new Promise((r) => setTimeout(r, 600));
+    const b = window.__brain;
+    return { mode: b.mode(), active: b.replayState().active,
+      bar: document.getElementById('panel-replay')?.style.display !== 'none' };
+  })()`);
+  check('Esc exits replay back to brain', exited?.mode === 'brain' && exited.active === false && exited.bar === false);
+
   ws.close();
   chrome.kill();
 } catch (err) {

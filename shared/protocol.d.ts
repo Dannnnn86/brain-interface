@@ -133,8 +133,30 @@ export type ServerMessage = HelloMessage | EventMessage | SessionsMessage | Pong
 export interface ClientRequestMessage {
   kind: 'req';
   id: number;
-  method: 'getState' | 'getSessions' | 'getSession' | 'getFeed' | 'simulate';
+  method: 'getState' | 'getSessions' | 'getSession' | 'getTimeline' | 'getFeed' | 'simulate';
   params?: Record<string, unknown>;
+}
+
+export interface TimelineFrame {
+  t: number;
+  type: string;
+  tool?: string;
+  argsSummary?: string;
+  ok?: boolean;
+  durationMs?: number;
+  text?: string;
+  error?: string;
+}
+
+export interface ReplayTimeline {
+  id: string;
+  title: string;
+  source: 'recorded' | 'transcript';
+  duration: number;
+  frames: TimelineFrame[];
+  bookmarks: Array<{ t: number; kind: 'error' | 'tool' | 'file' }>;
+  totals: { messages: number; tools: number } | null;
+  generatedAt: number;
 }
 
 export interface ClientPingMessage {

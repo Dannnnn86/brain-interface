@@ -115,35 +115,38 @@ FPS must stay ≥ 55 in headless (SwiftShader baseline was 63).
 
 ---
 
-## M3 — Time Machine (Replay)
+## M3 — Time Machine (Replay) — DONE (2026-11-15)
 
 **Server:**
-- [ ] `GET /api/sessions/:id/timeline` → normalized event timeline:
-      - primary source: recorded `events/*.jsonl` (real timestamps, tool
-        durations, model info);
-      - fallback: transcript parser (message index → synthetic ts, tool lines
-        from `> **tool**` lines — parser already exists in sessions.js).
-      - Response: `{ session, frames: [{ t, type, tool?, ok?, text?, ... }], bookmarks: [{ t, kind: 'error'|'tool'|'file' }] }`.
-- [ ] Timeline cache in memory (LRU 20) — transcripts re-parse is O(file).
+- [x] `GET /api/sessions/:id/timeline` (+ WS `getTimeline`) → normalized
+      frames. Two sources: recorded `events/*.jsonl` (≥5 events) with real
+      timestamps, fallback transcript parser (real message stamps).
+      NEW: idle-gap compression (60s cap per gap) in BOTH sources — real
+      sessions span hours (one was 17h; compressed to ~2.2h; transcripts
+      19h → 21min). Frames/format exactly as planned + `totals`.
+- [x] Timeline cache (LRU 20, 10-min TTL) in `server/src/timeline.js`.
 
 **Client — REPLAY mode:**
-- [ ] Third mode pill state `[ BRAIN | MAP | REPLAY ]` (or replay is an
-      overlay on BRAIN — decided: replay IS brain mode with a timeline bar).
-- [ ] Session picker (searchable dropdown from session list; live sessions
-      disabled with "still running" tooltip).
-- [ ] Bottom timeline: scrubber (drag = seek), play/pause, speeds
-      0.5×/1×/2×/10×/100×, bookmark ticks (errors red, tool calls orange,
-      file edits blue), frame stepping `←/→`.
-- [ ] Replay engine (`ReplayEngine.ts`): virtual clock maps scrub position →
-      stream of due events → same ImpulseSystem + a "replay session card" that
-      shows counts at time T. Seeking backwards = reset impulse pool +
-      fast-forward silently (no animation spam: batch-spawn with age offsets).
-- [ ] Multi-view sync (lite): side log panel showing the message text around
-      the playhead (from timeline frames).
+- [x] Third pill state `[ BRAIN | MAP | REPLAY ]`; replay reuses the brain
+      scene (impulses) exactly as planned.
+- [x] Session picker: searchable, live sessions disabled with tooltip.
+- [x] Bottom timeline bar: transport (⏮ ▶ ⏭), speeds 0.5–100×, drag-scrub
+      track with glowing handle, bookmark ticks (tool orange / file blue /
+      error red), time + live counters (msgs · tools · frame i/N).
+- [x] ReplayEngine: virtual clock → frame stream into the SAME ImpulseSystem;
+      backward seek = clearAll + 1.2s history-window respawn; forward seek =
+      silent; stepping ←/→; Space play/pause; Esc exits; `r` enters replay.
+- [x] Replay log panel (right side; live feed + legend hidden in replay mode).
+- [x] Live safety: store.onFeedItem router skips impulses while replay owns
+      the scene; ambient impulses off in replay; URL `?mode=replay&session=`
+      deep-link (waits for WS connect before fetching).
 
-**Verify:** replay a known real session (e.g. the trim-session one) — check
-card counters match transcript at end; qa-shot with `?mode=replay&session=...`
-+ vision QA of the timeline UI; stepping works via CDP key events.
+**Verified:** smoke **12/12** (incl. deterministic marker timeline + real
+session compressed), qa-interact **16/16** (picker, load, play, pause, step,
+exit), vision QA of timeline UI, deterministic CDP layout checks.
+**BONUS:** the reporter plugin was found LIVE — real opencode sessions
+(including this project's own M1 session, 332 frames) are being recorded.
+Deferred to M4: token capture from live events (probe pass when M4 starts).
 
 ---
 

@@ -87,7 +87,7 @@ function feedLine(event: SystemEvent): { chip: string; chipClass: string; msg: s
 }
 
 export class Hud {
-  private root: HTMLElement;
+  readonly root: HTMLElement;
   private badges: HTMLElement;
   private connBadge: HTMLElement;
   private simBadge: HTMLElement;
@@ -142,6 +142,7 @@ export class Hud {
     for (const [key, label] of [
       ['brain', 'BRAIN'],
       ['map', 'MAP'],
+      ['replay', 'REPLAY'],
     ] as Array<[string, string]>) {
       const btn = el('button', 'mode-btn', modePill);
       btn.type = 'button';
@@ -240,6 +241,9 @@ export class Hud {
     for (const [key, btn] of this.modeButtons) {
       btn.classList.toggle('active', key === mode);
     }
+    // Scoped panel visibility (e.g. replay hides the live feed + legend).
+    this.root.classList.remove('mode-brain', 'mode-map', 'mode-replay');
+    this.root.classList.add(`mode-${mode}`);
   }
 
   setPaused(paused: boolean): void {

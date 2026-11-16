@@ -106,16 +106,26 @@ try {
   const hello = inbox.find((m) => m.kind === 'hello');
   check('ws hello received', Boolean(hello), hello ? `${hello.sessions?.length ?? 0} sessions in hello` : 'none');
 
-  // Custom ingest event should come back over the socket.
+  // Custom ingest batch (6 events) — drives the deterministic recorded-timeline
+  // check below and proves array bodies work.
   const marker = `smoke-${Date.now()}`;
+  const markerEvents = [
+    { type: 'session.start', sessionId: marker, title: 'smoke test session' },
+    ...Array.from({ length: 5 }, (_, i) => ({
+      type: 'session.activity',
+      sessionId: marker,
+      messageCount: i + 1,
+      text: `smoke message ${i + 1}`,
+    })),
+  ];
   const ingestRes = await (
     await fetch(`${BASE}/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'session.start', sessionId: marker, title: 'smoke test session' }),
+      body: JSON.stringify(markerEvents),
     })
   ).json();
-  check('POST /ingest accepted', ingestRes.ok === true && ingestRes.accepted === 1, JSON.stringify(ingestRes));
+  check('POST /ingest accepted (batch)', ingestRes.ok === true && ingestRes.accepted === 6, JSON.stringify(ingestRes));
 
   await new Promise((r) => setTimeout(r, 900));
   const gotMarker = inbox.some((m) => m.kind === 'event' && m.event?.sessionId === marker);
@@ -132,6 +142,36 @@ try {
     Array.isArray(recorded.events) && recorded.events.some((e) => e.sessionId === marker),
     `${recorded.count ?? 0} events today`,
   );
+
+  // ---- Timelines (M3 replay) ----
+  // Deterministic: the 6 marker events we just posted must produce a timeline.
+  {
+    const res = await fetch(`${BASE}/api/sessions/${encodeURIComponent(marker)}/timeline`);
+    const tl = res.ok ? await res.json() : null;
+    check(
+      'recorded timeline builds (marker session)',
+      !!tl && tl.source === 'recorded' && tl.frames.length === 6 && tl.duration > 0,
+      tl ? `${tl.frames.length} frames / ${Math.round(tl.duration)}s` : `HTTP ${res.status}`,
+    );
+  }
+
+  // Real vault session (recorded or transcript source — both are valid).
+  const realCandidate = sessions1.sessions.find((s) => s.simulated !== true && s.messages > 5);
+  if (realCandidate) {
+    const res = await fetch(`${BASE}/api/sessions/${encodeURIComponent(realCandidate.id)}/timeline`);
+    const tl = res.ok ? await res.json() : null;
+    check(
+      'real session timeline builds (gaps compressed)',
+      !!tl &&
+        ['recorded', 'transcript'].includes(tl.source) &&
+        tl.frames.length >= 5 &&
+        tl.duration > 0 &&
+        tl.duration < 4 * 3600,
+      tl ? `${tl.source}: ${tl.frames.length} frames / ${Math.round(tl.duration)}s` : `HTTP ${res.status}`,
+    );
+  } else {
+    check('real session timeline builds (gaps compressed)', false, 'no vault session with messages found');
+  }
 
   ws.close();
   kill();

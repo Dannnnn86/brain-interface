@@ -68,6 +68,36 @@ export class Recorder {
     return out;
   }
 
+  /**
+   * All recorded events for one session across recent days, time-ordered.
+   * Substring pre-filter keeps parsing cheap on big files.
+   */
+  readForSession(sessionId, daysBack = 14, cap = 2000) {
+    if (!this.ready || !sessionId) return [];
+    const days = this.days().slice(-daysBack);
+    const needle = `"sessionId":"${sessionId}"`;
+    const out = [];
+    for (const day of days) {
+      let text;
+      try {
+        text = fs.readFileSync(path.join(DATA_DIR, `${day}.jsonl`), 'utf8');
+      } catch {
+        continue;
+      }
+      for (const line of text.split('\n')) {
+        if (!line || !line.includes(needle)) continue;
+        try {
+          const e = JSON.parse(line);
+          if (e.sessionId === sessionId) out.push(e);
+        } catch {
+          /* skip corrupt line */
+        }
+      }
+    }
+    out.sort((a, b) => (a.at || 0) - (b.at || 0));
+    return out.length > cap ? out.slice(-cap) : out;
+  }
+
   /** Days that have recordings, oldest first. */
   days() {
     try {

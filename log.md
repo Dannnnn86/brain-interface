@@ -39,3 +39,22 @@ Project scaffolded at `D:\projects\44-brain-interface`. Design spec approved; im
   modes + vision QA clean; `scripts/cdp-eval.js` added for debugging.
 - Gotcha: Vite dev cache served stale CSS after rapid saves (watcher missed a
   save) — restart Vite; diagnose with cdp-eval rule inspection.
+
+## 2026-11-15 — Milestone 3 (Time Machine) complete
+- **Plugin verified LIVE**: real opencode sessions recorded (own M1 session =
+  332 frames) — the whole pipeline works with reality, not just the simulator.
+- **Timeline API** (`server/src/timeline.js` + REST/WS): recorded jsonl source
+  (≥5 events) with transcript fallback; idle-gap compression (60s cap) in both
+  — 17h real session → 2.2h replay; LRU-20 cache; `totals` for counters.
+- **Replay UI**: REPLAY pill (3-mode), searchable session picker (live
+  disabled), timeline bar (transport, 0.5–100×, drag scrub + bookmark ticks,
+  counters), replay log panel; live feed/legend hidden in replay mode.
+- **ReplayEngine**: frame stream into the same impulse system; backward seek =
+  clear + history respawn; stepping; Space/←/→/Esc/r keys; `?mode=replay&
+  session=` deep-link (connection-race fixed with whenConnected()).
+- **Tests**: smoke 12/12 (marker-fixture timeline + real-session bounds),
+  qa-interact 16/16 (full replay flow), vision QA + deterministic CDP checks
+  (vision false-positive on feed/legend hidden state — CDP confirmed correct).
+- **Durable fix**: Vite `server.watch.usePolling` (Windows watcher reliability;
+  stale-CSS bit twice across sessions).
+- Deferred: token capture (M4, needs a probe pass over live event shapes).

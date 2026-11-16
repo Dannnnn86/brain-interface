@@ -173,6 +173,9 @@ try {
           return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width) };
         })(),
         cameraPos: b?.engine ? { x: Math.round(b.engine.camera.position.x), y: Math.round(b.engine.camera.position.y), z: Math.round(b.engine.camera.position.z) } : null,
+        replay: b?.replayState ? (() => { const rs = b.replayState(); return { active: rs.active, id: rs.id, frames: rs.frameCount, duration: Math.round(rs.duration), t: Math.round(rs.t * 10) / 10, playing: rs.playing }; })() : null,
+        replayBar: document.getElementById('panel-replay')?.style.display !== 'none' ?? false,
+        replayLog: document.getElementById('panel-replay-log')?.style.display !== 'none' ?? false,
         labelSample: Array.from(document.querySelectorAll('.map-label')).filter(n => n.style.display !== 'none').slice(0, 6).map(n => ({ t: n.textContent, l: n.style.left, top: n.style.top })),
       };
     })()`,

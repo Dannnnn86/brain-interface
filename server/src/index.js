@@ -19,6 +19,7 @@ import { Hub } from './hub.js';
 import { Ingest } from './ingest.js';
 import { Recorder, currentDay } from './recorder.js';
 import { SessionStore } from './sessions.js';
+import { buildTimeline } from './timeline.js';
 import { startWatcher } from './watcher.js';
 import { Simulator } from './simulator.js';
 import { getSystemState } from './state.js';
@@ -178,6 +179,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const timeline = pathname.match(/^\/api\/sessions\/([^/]+)\/timeline$/);
+    if (req.method === 'GET' && timeline) {
+      const id = decodeURIComponent(timeline[1]);
+      const built = buildTimeline({ store, recorder }, id);
+      if (!built) json(res, 404, { error: 'no timeline for this session' });
+      else json(res, 200, built);
+      return;
+    }
+
     const detail = pathname.match(/^\/api\/sessions\/([^/]+)$/);
     if (req.method === 'GET' && detail) {
       const id = decodeURIComponent(detail[1]);
@@ -234,6 +244,14 @@ function handleClientMessage(ws, msg) {
         const id = String(msg.params?.id || '');
         if (!id) return fail('missing session id');
         respond(store.detail(id));
+        break;
+      }
+      case 'getTimeline': {
+        const id = String(msg.params?.id || '');
+        if (!id) return fail('missing session id');
+        const built = buildTimeline({ store, recorder }, id);
+        if (!built) return fail('no timeline for this session');
+        respond(built);
         break;
       }
       case 'getFeed':

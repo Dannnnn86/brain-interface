@@ -9,6 +9,10 @@ export default defineConfig({
   },
   server: {
     port: 4200,
+    // Windows fs.watch silently drops events under rapid saves, which made
+    // Vite serve stale CSS/TS transforms. Polling is reliable; cost is
+    // negligible for this small tree and it only affects dev.
+    watch: { usePolling: true, interval: 300 },
     proxy: {
       '/api': 'http://127.0.0.1:3030',
       '/ingest': 'http://127.0.0.1:3030',
