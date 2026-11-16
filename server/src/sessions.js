@@ -14,7 +14,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { INDEX_FILE, SESSIONS_DIR } from './config.js';
 
-const MAX_DISK_SESSIONS = 400;
+/** Hard cap on tracked sessions (live + disk). Oldest idle/completed are
+ *  evicted first from MEMORY/LISTS ONLY — vault files are never touched. */
+const MAX_TRACKED_SESSIONS = 500;
 const MAX_TRANSCRIPT_BYTES = 4 * 1024 * 1024;
 const MAX_MESSAGES_PER_SESSION = 500;
 
@@ -153,7 +155,7 @@ export class SessionStore {
     this.live = new Map();
   }
 
-  /** Re-read index.md and merge into the disk map. */
+  /** Re-read index.md and merge into the disk map (most recent within budget). */
   refreshFromDisk() {
     let text = '';
     try {
@@ -161,7 +163,8 @@ export class SessionStore {
     } catch {
       return;
     }
-    const entries = parseIndex(text).slice(-MAX_DISK_SESSIONS);
+    const budget = Math.max(0, MAX_TRACKED_SESSIONS - this.live.size);
+    const entries = parseIndex(text).slice(-budget);
     for (const e of entries) {
       const prev = this.disk.get(e.id) || {};
       this.disk.set(e.id, {
@@ -176,12 +179,78 @@ export class SessionStore {
         transcript: e.transcript || prev.transcript || '',
       });
     }
+    this.evict();
   }
 
   /** Upsert a session coming from live events. */
   upsertLive(summary) {
     const prev = this.live.get(summary.id) || {};
     this.live.set(summary.id, { ...prev, ...summary });
+    this.evict();
+  }
+
+  /**
+   * Keep the tracked catalog at MAX_TRACKED_SESSIONS: oldest idle/completed
+   * live entries drop first, then oldest disk entries. Memory/lists only —
+   * transcripts and recordings stay on disk and remain replayable.
+   */
+  evict() {
+    let over = this.live.size + this.disk.size - MAX_TRACKED_SESSIONS;
+    if (over <= 0) return;
+    // 1) finished live sessions, oldest activity first
+    const idleLive = [...this.live.values()]
+      .filter((s) => s.status !== 'live')
+      .sort((a, b) => (a.lastEventAt || 0) - (b.lastEventAt || 0));
+    for (const s of idleLive) {
+      if (over <= 0) break;
+      this.live.delete(s.id);
+      over -= 1;
+    }
+    // 2) still over? oldest disk entries (files untouched)
+    if (over > 0) {
+      const disks = [...this.disk.values()].sort((a, b) =>
+        String(a.date).localeCompare(String(b.date)),
+      );
+      for (const s of disks) {
+        if (over <= 0) break;
+        this.disk.delete(s.id);
+        over -= 1;
+      }
+    }
+  }
+
+  /** Live-table sessions only (this opencode run) — drives the left deck. */
+  listLive() {
+    return [...this.live.values()].sort(
+      (a, b) => (b.lastEventAt || 0) - (a.lastEventAt || 0),
+    );
+  }
+
+  /** Drop every live session (used when a new opencode run starts). */
+  clearLive() {
+    this.live.clear();
+  }
+
+  /** Find one session in index.md even if it was evicted from memory. */
+  findOnDisk(id) {
+    try {
+      const text = fs.readFileSync(INDEX_FILE, 'utf8');
+      const entry = parseIndex(text).find((e) => e.id === id);
+      if (!entry) return null;
+      return {
+        id: entry.id,
+        title: entry.title || 'Untitled session',
+        date: entry.date || '',
+        tag: entry.tag || '',
+        messages: entry.messages || 0,
+        tools: 0,
+        files: 0,
+        status: 'idle',
+        transcript: entry.transcript || '',
+      };
+    } catch {
+      return null;
+    }
   }
 
   /** Get one live session (ingest mutates through this). */
@@ -214,7 +283,9 @@ export class SessionStore {
    */
   detail(id) {
     const live = this.live.get(id) || null;
-    const disk = this.disk.get(id) || null;
+    // Memory-first, then a direct index.md scan so evicted sessions still
+    // resolve for replay.
+    const disk = this.disk.get(id) || this.findOnDisk(id);
     const summary = {
       ...(disk || {}),
       ...(live || {}),

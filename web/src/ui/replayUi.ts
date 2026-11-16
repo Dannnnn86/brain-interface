@@ -65,7 +65,8 @@ export class ReplayPicker {
   show(sessions: SessionSummary[]): void {
     this.listEl.replaceChildren();
     this.rows = [];
-    for (const s of sessions.slice(0, 120)) {
+    // Matches the server's 500-session catalog cap.
+    for (const s of sessions.slice(0, 500)) {
       const row = el('div', 'picker-row', this.listEl);
       const live = s.status === 'live';
       if (live) {

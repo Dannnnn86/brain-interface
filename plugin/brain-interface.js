@@ -28,6 +28,10 @@ const SERVER = (process.env.BRAIN_SERVER || 'http://127.0.0.1:3030').replace(/\/
 const POST_TIMEOUT_MS = 2000;
 const FAILURE_BACKOFF_MS = 30_000;
 const ACTIVITY_MIN_GAP_MS = 1500;
+const PAYLOAD_MIN_GAP_MS = 5000;
+// Payload estimate calibration: raw text/output lengths * JSON overhead.
+const PAYLOAD_OVERHEAD = 1.25;
+const PAYLOAD_PART_FIXED = 600;
 const MAX_TRACKED = 500;
 
 const CONFIG_DIR =
@@ -66,12 +70,18 @@ function findVault(directory) {
 /* ------------------------------------------------------------------ */
 
 const state = {
+  runId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
   lastFailureAt: 0,
   lastActivityAt: new Map(),   // sessionId -> ms (throttle activity posts)
   seenParts: new Map(),        // partId -> ms (dedupe part completions)
   callStartedAt: new Map(),    // callId -> ms (tool duration)
   titles: new Map(),           // sessionId -> title
   models: new Map(),           // sessionId -> model id
+  payloadBySession: new Map(), // sessionId -> estimated bytes
+  partSizes: new Map(),        // sessionId -> Map(partId -> {text,out})
+  lastPayloadAt: new Map(),    // sessionId -> ms (throttle payload posts)
+  tokensBySession: new Map(),  // sessionId -> cumulative token counters
+  tokenSent: new Set(),        // messageIds already captured
   sent: 0,
 };
 
@@ -168,6 +178,9 @@ function handlePart(part) {
   if (!sessionId) return;
   const partId = part.id || `${sessionId}:${part.type}:${part.callID || ''}`;
 
+  // Payload pressure estimate: incremental text/output growth per part.
+  trackPayload(sessionId, part);
+
   if (part.type === 'tool') {
     const callId = part.callID || partId;
     const status = part.state?.status;
@@ -225,12 +238,95 @@ function handlePart(part) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Payload estimation (NVIDIA-cap guard)                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Track incremental size growth per part (text + tool output lengths) and
+ * emit a `session.payload` estimate (throttled). Cheap: never serializes
+ * whole parts, only diffs string lengths.
+ */
+function trackPayload(sessionId, part) {
+  if (!part.id) return;
+  let parts = state.partSizes.get(sessionId);
+  if (!parts) {
+    parts = new Map();
+    state.partSizes.set(sessionId, parts);
+  }
+  const prev = parts.get(part.id) || { text: 0, out: 0 };
+  const textLen = typeof part.text === 'string' ? part.text.length : 0;
+  const outLen = typeof part.state?.output === 'string' ? part.state.output.length : 0;
+  const delta = Math.max(0, textLen - prev.text) + Math.max(0, outLen - prev.out);
+  if (delta <= 0) return;
+  parts.set(part.id, { text: textLen, out: outLen });
+
+  const est = (state.payloadBySession.get(sessionId) || 0) + delta;
+  state.payloadBySession.set(sessionId, est);
+
+  const now = Date.now();
+  if (now - (state.lastPayloadAt.get(sessionId) || 0) < PAYLOAD_MIN_GAP_MS) return;
+  state.lastPayloadAt.set(sessionId, now);
+  prune(state.lastPayloadAt);
+  post(
+    baseEvent(sessionId, 'session.payload', {
+      payloadBytes: Math.round(est * PAYLOAD_OVERHEAD + parts.size * PAYLOAD_PART_FIXED),
+    }),
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Token capture (opencode reports tokens + cost per assistant message) */
+/* ------------------------------------------------------------------ */
+
+function captureTokens(sessionId, info) {
+  if (!info || info.role !== 'assistant') return;
+  const messageId = info.id;
+  const t = info.tokens;
+  if (!messageId || !t || state.tokenSent.has(messageId)) return;
+  // Prefer final counts; early updates may carry partial/zero values.
+  const ready = info.time?.completed != null || (t.output || 0) > 0 || (t.input || 0) > 0;
+  if (!ready) return;
+  state.tokenSent.add(messageId);
+  prune(state.tokenSent);
+
+  const acc = state.tokensBySession.get(sessionId) || {
+    input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0, cost: 0,
+  };
+  acc.input += t.input || 0;
+  acc.output += t.output || 0;
+  acc.reasoning += t.reasoning || 0;
+  acc.cacheRead += t.cache?.read || 0;
+  acc.cacheWrite += t.cache?.write || 0;
+  acc.cost += typeof info.cost === 'number' ? info.cost : 0;
+  state.tokensBySession.set(sessionId, acc);
+  prune(state.tokensBySession);
+
+  post(
+    baseEvent(sessionId, 'session.tokens', {
+      tokens: {
+        input: acc.input,
+        output: acc.output,
+        reasoning: acc.reasoning,
+        cacheRead: acc.cacheRead,
+        cacheWrite: acc.cacheWrite,
+      },
+      cost: Math.round(acc.cost * 100000) / 100000,
+      model: info.modelID || modelFor(sessionId),
+    }),
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Plugin                                                              */
 /* ------------------------------------------------------------------ */
 
 export const BrainInterface = async ({ directory }) => {
   const vault = findVault(directory);
   void vault; // server keeps its own vault; discovery here is a sanity check
+
+  // Handshake: tells the server a fresh opencode run began, so the live deck
+  // shows only this run's sessions (previous ones stay replayable).
+  post({ type: 'runtime.start', sessionId: 'runtime', runId: state.runId, at: Date.now() });
 
   return {
     event: async ({ event }) => {
@@ -281,6 +377,11 @@ export const BrainInterface = async ({ directory }) => {
           }
           case 'message.part.updated': {
             handlePart(props.part);
+            break;
+          }
+          case 'message.updated': {
+            const sessionId = extractSessionId(props) || props.info?.sessionID;
+            if (sessionId) captureTokens(sessionId, props.info);
             break;
           }
           default:

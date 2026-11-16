@@ -74,3 +74,20 @@ Project scaffolded at `D:\projects\44-brain-interface`. Design spec approved; im
 - Tests: smoke 14/14, qa-interact 20/20. Vite polling: 0 restarts needed.
 - Remaining nice-to-haves (parking lot): token capture probe, IndexedDB
   offline boot, agent→skill map edges, WebM export, Telegram digest.
+
+## 2026-11-15 — Milestone 5 (Guardian & Insight) complete
+- **Payload pressure**: plugin v2 incremental estimator (+ runtime.start
+  handshake, token capture); card gauges, panel strip, temporal pressure ring;
+  sim heavy-session spikes (gauge peaked 19.1/18 MB). 18MB trim constant shared.
+- **Tokens & cost**: SDK-verified message.updated capture (tokens+cost,
+  cumulative per session); analytics tokens card + per-model tokens/cost.
+- **Problem sessions**: 10-min error-episode clustering, click → instant
+  replay. **Unknown-skill detection** (real `unknown×2` caught).
+- **Dead-skill dimming** on map; **bloom** (TSL, WebGPU-only, 59fps headless)
+  + activity-driven cloud brightness.
+- **Left panel = current opencode run**: runtime.start resets deck; WS live-only;
+  picker fetches full catalog (500 cap); empty-state hint card.
+- **500-session cutoff**: oldest idle/completed evicted (memory/lists only;
+  vault files untouched); evicted ids replay via index.md scan.
+- Tests: smoke 17/17, qa-interact 22/22, vision clean. Plugin deployed —
+  live payload/tokens verify on next opencode restart.

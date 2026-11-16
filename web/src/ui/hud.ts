@@ -7,6 +7,7 @@
  * only play on real changes.
  */
 import { animate } from 'animejs';
+import { PAYLOAD_TRIM_BYTES } from '@shared/protocol.js';
 import type { SystemEvent } from '@shared/protocol.js';
 import type { Engine } from '../engine/engine.js';
 import { modelColor, store as defaultStore } from '../state/store.js';
@@ -23,6 +24,8 @@ interface CardRefs {
   tools: HTMLElement;
   modelDot: HTMLElement;
   meta: HTMLElement;
+  pressure: HTMLElement;
+  pressureFill: HTMLElement;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -101,6 +104,10 @@ export class Hud {
   private store: Store;
   private modeButtons = new Map<string, HTMLElement>();
   private pauseBadge!: HTMLElement;
+  private payloadStrip!: HTMLElement;
+  private payloadLabel!: HTMLElement;
+  private payloadBarFill!: HTMLElement;
+  private deckHint!: HTMLElement;
   private detailPanel!: HTMLElement;
   private detailBody!: HTMLElement;
   private detailTitle!: HTMLElement;
@@ -136,8 +143,22 @@ export class Hud {
     this.simBadge.textContent = 'SIM';
     this.simBadge.style.display = 'none';
 
+    /* payload pressure strip (worst live session vs the 18 MB trim guard) */
+    this.payloadStrip = el('div', 'payload-strip', sessionsPanel);
+    this.payloadStrip.style.display = 'none';
+    const stripTop = el('div', 'payload-strip-top', this.payloadStrip);
+    this.payloadLabel = el('span', undefined, stripTop);
+    el('span', 'payload-sub', stripTop).textContent = 'trim guard';
+    const stripBar = el('div', 'payload-bar', this.payloadStrip);
+    this.payloadBarFill = el('div', 'payload-bar-fill', stripBar);
+
     this.sessionsList = el('div', undefined, sessionsPanel);
     this.sessionsList.id = 'sessions-list';
+
+    this.deckHint = el('div', 'deck-hint', this.sessionsList);
+    this.deckHint.style.display = 'none';
+    el('div', 'deck-hint-title', this.deckHint).textContent = 'no active sessions';
+    el('div', 'deck-hint-sub', this.deckHint).textContent = 'waiting for opencode activity…';
 
     /* ---------------- mode pill (top center) ---------------- */
     const modePill = el('div', 'panel mode-pill', this.root);
@@ -328,6 +349,25 @@ export class Hud {
     const sessions = this.store.sessions.slice(0, MAX_CARDS);
     const seen = new Set<string>();
 
+    // Empty state: only live sessions exist now — nothing running = hint card.
+    this.deckHint.style.display = sessions.length === 0 ? '' : 'none';
+
+    // Payload strip: worst live session pressure.
+    const withPayload = sessions.filter((s) => (s.payloadBytes ?? 0) > 0);
+    if (withPayload.length === 0) {
+      this.payloadStrip.style.display = 'none';
+    } else {
+      const worst = withPayload.reduce((a, b) => ((a.payloadBytes ?? 0) > (b.payloadBytes ?? 0) ? a : b));
+      const bytes = worst.payloadBytes ?? 0;
+      const ratio = bytes / PAYLOAD_TRIM_BYTES;
+      this.payloadStrip.style.display = '';
+      this.payloadLabel.textContent = `peak ≈ ${(bytes / 1e6).toFixed(1)} / ${(PAYLOAD_TRIM_BYTES / 1e6).toFixed(0)} MB`;
+      this.payloadLabel.className = ratio >= 0.9 ? 'crit' : ratio >= 0.7 ? 'warn' : '';
+      this.payloadBarFill.style.width = `${Math.min(100, ratio * 100).toFixed(1)}%`;
+      this.payloadBarFill.className = `payload-bar-fill ${ratio >= 0.9 ? 'crit' : ratio >= 0.7 ? 'warn' : ''}`;
+      this.payloadStrip.title = `worst session: ${worst.title}`;
+    }
+
     sessions.forEach((s, i) => {
       seen.add(s.id);
       let refs = this.cards.get(s.id);
@@ -375,7 +415,10 @@ export class Hud {
     el('span', undefined, tools).textContent = 'tool';
     const toolB = el('b', undefined, tools);
     const status = el('span', 'session-status idle', meta);
-    return { el: elCard, title, status, messages: msgB, tools: toolB, modelDot: dot, meta };
+    const pressure = el('div', 'pressure', elCard);
+    pressure.style.display = 'none';
+    const pressureFill = el('div', 'pressure-fill', pressure);
+    return { el: elCard, title, status, messages: msgB, tools: toolB, modelDot: dot, meta, pressure, pressureFill };
   }
 
   private updateCard(refs: CardRefs, s: import('@shared/protocol.js').SessionSummary): void {
@@ -388,6 +431,18 @@ export class Hud {
     refs.modelDot.style.boxShadow = `0 0 6px ${modelColor(s.model)}`;
     tweenNumber(refs.messages, s.messages);
     tweenNumber(refs.tools, s.tools);
+
+    // Payload pressure gauge (estimated vs the 18 MB trim guard).
+    const bytes = s.payloadBytes ?? 0;
+    if (bytes > 0) {
+      const ratio = bytes / PAYLOAD_TRIM_BYTES;
+      refs.pressure.style.display = '';
+      refs.pressureFill.style.width = `${Math.min(100, ratio * 100).toFixed(1)}%`;
+      refs.pressureFill.className = `pressure-fill ${ratio >= 0.9 ? 'crit' : ratio >= 0.7 ? 'warn' : ''}`;
+      refs.pressure.title = `estimated payload ≈ ${(bytes / 1e6).toFixed(1)} MB of ${(PAYLOAD_TRIM_BYTES / 1e6).toFixed(0)} MB`;
+    } else {
+      refs.pressure.style.display = 'none';
+    }
   }
 
   /* ------------------------------ stats ------------------------------ */

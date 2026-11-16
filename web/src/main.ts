@@ -25,7 +25,8 @@ import { ArchitectureMap } from './modules/architectureMap.js';
 import { ReplayEngine } from './modules/replayEngine.js';
 import { ReplayPicker, TimelineBar, ReplayLog, frameToLogEntry } from './ui/replayUi.js';
 import { AnalyticsPanel } from './ui/analyticsPanel.js';
-import type { AnalyticsResponse, ReplayTimeline, SystemEvent, TimelineFrame } from '@shared/protocol.js';
+import { PAYLOAD_TRIM_BYTES } from '@shared/protocol.js';
+import type { AnalyticsResponse, ReplayTimeline, SessionSummary, SystemEvent, TimelineFrame } from '@shared/protocol.js';
 
 type Mode = 'brain' | 'map' | 'replay';
 
@@ -174,7 +175,7 @@ async function boot(): Promise<void> {
       return true;
     } catch (err) {
       console.warn('[brain] timeline load failed:', err);
-      if (mode === 'replay') picker.show(store.sessions);
+      if (mode === 'replay') void showPicker();
       return false;
     }
   }
@@ -211,7 +212,7 @@ async function boot(): Promise<void> {
         timelineBar.show();
         replayLog.show();
       } else {
-        picker.show(store.sessions);
+        void showPicker();
       }
     } else {
       if (wasReplay) exitReplay();
@@ -295,6 +296,25 @@ async function boot(): Promise<void> {
   };
   analyticsPanel.onClose = () => closeAnalytics();
   analyticsPanel.onScope = (scope) => void loadAnalytics(scope, true);
+  analyticsPanel.onSessionOpen = (id) => {
+    closeAnalytics();
+    void setMode('replay').then(() => loadReplay(id));
+  };
+
+  /* The left deck carries THIS run's sessions only; the picker needs the
+     full catalog — fetch it on open (falling back to the live list). */
+  async function showPicker(): Promise<void> {
+    let list: SessionSummary[] = store.sessions;
+    try {
+      if (await whenConnected()) {
+        const res = (await rpc('getSessions')) as { sessions?: SessionSummary[] };
+        if (Array.isArray(res?.sessions) && res.sessions.length > 0) list = res.sessions;
+      }
+    } catch {
+      /* fall back to the live list */
+    }
+    picker.show(list);
+  }
 
   hud.render(engine);
   store.subscribe(() => {
@@ -509,12 +529,32 @@ async function boot(): Promise<void> {
 
   /* ------------------------------ frame ------------------------------ */
 
+  let activitySmooth = 1;
+  let lastPressureCheck = 0;
+
   engine.onFrame((dt, t) => {
     brain.update(dt, t);
     regions.update(dt, t, engine.camera, engine.size);
     impulses.update(dt, t);
     map.update(dt, t, engine.camera, engine.size);
     replay.update(dt);
+
+    // Data-driven brain: cloud brightness follows the live event rate.
+    const target = 1 + Math.min(1, store.eventsPerMin / 30) * 0.45;
+    activitySmooth += (target - activitySmooth) * Math.min(1, dt * 1.5);
+    brain.setActivity(activitySmooth);
+
+    // Payload pressure ring at the temporal anchor (worst live session).
+    const now = performance.now();
+    if (now - lastPressureCheck > 500) {
+      lastPressureCheck = now;
+      let worst = 0;
+      for (const s of store.sessions) {
+        const ratio = (s.payloadBytes ?? 0) / PAYLOAD_TRIM_BYTES;
+        if (ratio > worst) worst = ratio;
+      }
+      regions.setPressure(worst > 0.4 ? { ratio: worst } : null);
+    }
   });
 
   engine.start();

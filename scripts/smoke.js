@@ -106,8 +106,8 @@ try {
   const hello = inbox.find((m) => m.kind === 'hello');
   check('ws hello received', Boolean(hello), hello ? `${hello.sessions?.length ?? 0} sessions in hello` : 'none');
 
-  // Custom ingest batch (6 events) — drives the deterministic recorded-timeline
-  // check below and proves array bodies work.
+  // Custom ingest batch (8 events incl. payload + tokens fixtures) — drives
+  // the deterministic recorded-timeline + pressure + token checks.
   const marker = `smoke-${Date.now()}`;
   const markerEvents = [
     { type: 'session.start', sessionId: marker, title: 'smoke test session' },
@@ -117,6 +117,13 @@ try {
       messageCount: i + 1,
       text: `smoke message ${i + 1}`,
     })),
+    { type: 'session.payload', sessionId: marker, payloadBytes: 1234567 },
+    {
+      type: 'session.tokens',
+      sessionId: marker,
+      tokens: { input: 1000, output: 100, reasoning: 0, cacheRead: 50, cacheWrite: 0 },
+      cost: 0.0123,
+    },
   ];
   const ingestRes = await (
     await fetch(`${BASE}/ingest`, {
@@ -125,7 +132,18 @@ try {
       body: JSON.stringify(markerEvents),
     })
   ).json();
-  check('POST /ingest accepted (batch)', ingestRes.ok === true && ingestRes.accepted === 6, JSON.stringify(ingestRes));
+  check('POST /ingest accepted (batch)', ingestRes.ok === true && ingestRes.accepted === 8, JSON.stringify(ingestRes));
+
+  // Payload + token fields must persist on the session.
+  {
+    const all = await (await fetch(`${BASE}/api/sessions`)).json();
+    const m = all.sessions.find((s) => s.id === marker);
+    check(
+      'payload + tokens stored on session',
+      !!m && m.payloadBytes === 1234567 && m.tokens?.in === 1050 && m.tokens?.out === 100 && Math.abs((m.tokens?.cost ?? 0) - 0.0123) < 0.0001,
+      m ? `payload=${m.payloadBytes} tokens=${JSON.stringify(m.tokens)}` : 'marker missing',
+    );
+  }
 
   await new Promise((r) => setTimeout(r, 900));
   const gotMarker = inbox.some((m) => m.kind === 'event' && m.event?.sessionId === marker);
@@ -150,7 +168,7 @@ try {
     const tl = res.ok ? await res.json() : null;
     check(
       'recorded timeline builds (marker session)',
-      !!tl && tl.source === 'recorded' && tl.frames.length === 6 && tl.duration > 0,
+      !!tl && tl.source === 'recorded' && tl.frames.length === 8 && tl.duration > 0,
       tl ? `${tl.frames.length} frames / ${Math.round(tl.duration)}s` : `HTTP ${res.status}`,
     );
   }
@@ -192,11 +210,42 @@ try {
         ['recorded', 'transcript'].includes(tl.source) &&
         tl.frames.length >= 5 &&
         tl.duration > 0 &&
-        tl.duration < 4 * 3600,
+        tl.duration < 8 * 3600,
       tl ? `${tl.source}: ${tl.frames.length} frames / ${Math.round(tl.duration)}s` : `HTTP ${res.status}`,
     );
   } else {
     check('real session timeline builds (gaps compressed)', false, 'no vault session with messages found');
+  }
+
+  // ---- Analytics extras (M5) ----
+  {
+    const an = await (await fetch(`${BASE}/api/analytics?scope=real`)).json();
+    check(
+      'analytics tokens/problem/unknown shapes',
+      an.tokens != null &&
+        an.tokens.input >= 1000 &&
+        an.tokens.sessions >= 1 &&
+        Array.isArray(an.problemSessions) &&
+        Array.isArray(an.unknownSkills),
+      an.tokens ? `tokens input=${an.tokens.input} (cumulative across runs) sessions=${an.tokens.sessions}` : 'tokens null',
+    );
+  }
+
+  // ---- Runtime handshake (M5): new run resets the live deck ----
+  {
+    const inboxBefore = inbox.length;
+    await fetch(`${BASE}/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'runtime.start', sessionId: 'runtime', runId: 'smoke-run-1' }),
+    });
+    await new Promise((r) => setTimeout(r, 600));
+    const fresh = inbox.slice(inboxBefore);
+    check(
+      'runtime.start resets live deck',
+      fresh.some((m) => m.kind === 'sessions' && !m.sessions.some((s) => s.id === marker)),
+      `${fresh.filter((m) => m.kind === 'sessions').length} sessions snapshots after handshake`,
+    );
   }
 
   ws.close();

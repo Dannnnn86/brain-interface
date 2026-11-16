@@ -203,7 +203,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET' && pathname === '/api/analytics') {
       const scope = url.searchParams.get('scope') === 'real' ? 'real' : 'all';
-      json(res, 200, buildAnalytics({ recorder }, scope));
+      const skills = getSystemState(VAULT).skills?.names ?? [];
+      json(res, 200, buildAnalytics({ recorder, skills }, scope));
       return;
     }
 
@@ -263,7 +264,8 @@ function handleClientMessage(ws, msg) {
       }
       case 'getAnalytics': {
         const scope = msg.params?.scope === 'real' ? 'real' : 'all';
-        respond(buildAnalytics({ recorder }, scope));
+        const skills = getSystemState(VAULT).skills?.names ?? [];
+        respond(buildAnalytics({ recorder, skills }, scope));
         break;
       }
       case 'getFeed':
@@ -294,7 +296,8 @@ hub.wss.on('connection', (ws) => {
     kind: 'hello',
     protocolVersion: 1,
     state: getSystemState(VAULT),
-    sessions: store.list().slice(0, 120),
+    // Live deck only — the full catalog arrives via getSessions (picker).
+    sessions: store.listLive(),
     simulate: SIMULATE,
   });
 });

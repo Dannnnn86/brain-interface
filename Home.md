@@ -34,10 +34,15 @@ A single-page WebGPU app that renders opencode's whole system as an interactive 
 - M4 Analyst: analytics API (tool health, 30-day activity, models, 7×24
   heatmap, errors, skill usage; ALL/REAL scope) + slide-over dashboard
   (`a` key / `?analytics=1`); brain heat by activity share; skill-weighted map
-- Tests: smoke 14/14, qa-interact 20/20, qa-shot + cdp-eval + vision QA
+- M5 Guardian & Insight: payload pressure gauges/strip/temporal ring (18MB
+  trim guard), tokens & cost capture (SDK-verified), problem sessions with
+  click-to-replay, dead-skill dimming, bloom + activity-driven brain, left
+  panel = current opencode run only (runtime handshake), 500-session catalog
+  cap (memory/UI only)
+- Tests: smoke 17/17, qa-interact 22/22, qa-shot + cdp-eval + vision QA
 - Run: `npm run sim` (demo) or `npm run dev` (live) → http://localhost:4200
-- Parking lot: token capture probe, IndexedDB offline boot, agent→skill map
-  edges, WebM export, Telegram daily digest
+- Parking lot: IndexedDB offline boot, agent→skill map edges, WebM export,
+  Telegram daily digest, desktop tab-state probing
 
 ## Design & Plan
 

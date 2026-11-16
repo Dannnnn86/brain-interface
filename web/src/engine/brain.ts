@@ -38,6 +38,8 @@ export interface Brain {
   /** Global opacity multiplier (mode crossfades). */
   setFade(v: number): void;
   setVisible(v: boolean): void;
+  /** Activity glow multiplier (1 = base) — driven by live events/min. */
+  setActivity(v: number): void;
 }
 
 interface InstancedSprite extends THREE.Sprite {
@@ -75,13 +77,14 @@ function buildCloud(
 
   const glow = makeGlowTexture();
   const fade = uniform(1);
+  const activity = uniform(1);
   const material = new THREE.PointsNodeMaterial();
   material.positionNode = instancedBufferAttribute(new THREE.InstancedBufferAttribute(positions, 3), 'vec3' as const);
   material.sizeNode = vec2(instancedBufferAttribute(new THREE.InstancedBufferAttribute(sizes, 1), 'float' as const));
   material.colorNode = instancedBufferAttribute(
     new THREE.InstancedBufferAttribute(colors, 4),
     'vec4' as const,
-  ).mul(texture(glow, uv())).mul(fade);
+  ).mul(texture(glow, uv())).mul(fade).mul(activity);
   material.sizeAttenuation = sizeAttenuation;
   material.transparent = true;
   material.blending = THREE.AdditiveBlending;
@@ -90,12 +93,13 @@ function buildCloud(
   const sprite = new THREE.Sprite(material) as InstancedSprite;
   sprite.count = count;
   sprite.frustumCulled = false;
-  return { sprite, fade };
+  return { sprite, fade, activity };
 }
 
 interface CloudHandle {
   sprite: InstancedSprite;
   fade: { value: number };
+  activity: { value: number };
 }
 
 /** Two-lobed brain shell (44k points). */
@@ -202,6 +206,7 @@ export function createBrain(scene: THREE.Scene): Brain {
   scene.add(group);
 
   const fades = [brain.fade, halo.fade, stars.fade];
+  const activities = [brain.activity, halo.activity, stars.activity];
   let wobble = 0;
   let breathe = 0;
 
@@ -212,6 +217,9 @@ export function createBrain(scene: THREE.Scene): Brain {
     },
     setVisible(v) {
       group.visible = v;
+    },
+    setActivity(v) {
+      for (const a of activities) a.value = v;
     },
     update(dt, t) {
       wobble += dt;

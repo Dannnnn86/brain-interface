@@ -39,10 +39,13 @@ function emptyToolStat() {
   return { calls: 0, results: 0, ok: 0, failed: 0, totalMs: 0, nMs: 0 };
 }
 
-export function buildAnalytics({ recorder }, scope = 'all') {
+const EPISODE_GAP_MS = 10 * 60_000;
+
+export function buildAnalytics({ recorder, skills = [] }, scope = 'all') {
   if (cache.data && cache.key === scope && Date.now() - cache.at < CACHE_TTL_MS) {
     return cache.data;
   }
+  const knownSkills = skills.map((s) => String(s).toLowerCase());
 
   const days = windowDays(WINDOW_DAYS);
   const available = new Set(recorder.days());
@@ -75,6 +78,9 @@ export function buildAnalytics({ recorder }, scope = 'all') {
   const skillRaw = new Map();
   const byType = {};
   const errorList = [];
+  const tokenLatest = new Map(); // sessionId -> { tokens, cost, model, title }
+  const sessionErrors = new Map(); // sessionId -> [at...]
+  const sessionTitles = new Map(); // sessionId -> last seen title
   let errors = 0;
   let toolCalls = 0;
 
@@ -99,6 +105,22 @@ export function buildAnalytics({ recorder }, scope = 'all') {
       byType[e.type] = (byType[e.type] || 0) + 1;
       if (e.model && !sessionModel) sessionModel = e.model;
       if (e.model) modelCounts.set(e.model, (modelCounts.get(e.model) || 0) + 1);
+      if (e.title) sessionTitles.set(sessionId, e.title);
+      if (e.type === 'session.tokens' && e.tokens) {
+        tokenLatest.set(sessionId, {
+          tokens: e.tokens,
+          cost: e.cost || 0,
+          model: e.model || sessionModel || '',
+        });
+      }
+      if (e.type === 'session.error' || (e.type === 'tool.result' && e.ok === false)) {
+        let arr2 = sessionErrors.get(sessionId);
+        if (!arr2) {
+          arr2 = [];
+          sessionErrors.set(sessionId, arr2);
+        }
+        arr2.push(at);
+      }
 
       switch (e.type) {
         case 'tool.call': {
@@ -165,6 +187,61 @@ export function buildAnalytics({ recorder }, scope = 'all') {
     .sort((a, b) => b.calls - a.calls)
     .slice(0, 20);
 
+  /* ------------------------- tokens & cost (cumulative per session) ------------------------- */
+
+  const tokenTotals = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, sessions: 0 };
+  const tokensByModel = new Map();
+  for (const entry of tokenLatest.values()) {
+    const t = entry.tokens;
+    tokenTotals.input += t.input;
+    tokenTotals.output += t.output;
+    tokenTotals.cacheRead += t.cacheRead;
+    tokenTotals.cacheWrite += t.cacheWrite;
+    tokenTotals.cost += entry.cost;
+    tokenTotals.sessions += 1;
+    if (entry.model) {
+      const m = tokensByModel.get(entry.model) || { input: 0, output: 0, cost: 0 };
+      m.input += t.input;
+      m.output += t.output;
+      m.cost += entry.cost;
+      tokensByModel.set(entry.model, m);
+    }
+  }
+
+  /* ------------------------- error episodes → problem sessions ------------------------- */
+
+  const problemSessions = [];
+  for (const [sessionId, errorAts] of sessionErrors) {
+    errorAts.sort((a, b) => a - b);
+    let episodes = 1;
+    for (let i = 1; i < errorAts.length; i++) {
+      if (errorAts[i] - errorAts[i - 1] > EPISODE_GAP_MS) episodes += 1;
+    }
+    const sample = bySession.get(sessionId)?.[0] || {};
+    problemSessions.push({
+      sessionId,
+      title: sessionTitles.get(sessionId) || 'Untitled session',
+      errors: errorAts.length,
+      episodes,
+      firstAt: errorAts[0],
+      lastAt: errorAts[errorAts.length - 1],
+      simulated: sample.simulated === true,
+    });
+  }
+  problemSessions.sort((a, b) => b.errors - a.errors);
+
+  /* ------------------------- unknown skills (hygiene signal) ------------------------- */
+
+  const isKnownSkill = (name) => {
+    const n = name.toLowerCase();
+    return knownSkills.some((k) => k.length > 2 && (n.includes(k) || k.includes(n)));
+  };
+  const unknownSkills = [...skillRaw.entries()]
+    .filter(([name]) => knownSkills.length > 0 && !isKnownSkill(name))
+    .map(([skill, calls]) => ({ skill, calls }))
+    .sort((a, b) => b.calls - a.calls)
+    .slice(0, 10);
+
   const data = {
     generatedAt: Date.now(),
     scope,
@@ -187,7 +264,12 @@ export function buildAnalytics({ recorder }, scope = 'all') {
       }),
     },
     models: [...modelCounts.entries()]
-      .map(([model, count]) => ({ model, events: count, sessions: modelSessions.get(model) || 0 }))
+      .map(([model, count]) => ({
+        model,
+        events: count,
+        sessions: modelSessions.get(model) || 0,
+        tokens: tokensByModel.get(model) || null,
+      }))
       .sort((a, b) => b.events - a.events)
       .slice(0, 15),
     heatmap: { rows: hourGrid }, // 7 rows Mon=0, 24 cols
@@ -196,7 +278,9 @@ export function buildAnalytics({ recorder }, scope = 'all') {
       .map(([skill, calls]) => ({ skill, calls }))
       .sort((a, b) => b.calls - a.calls)
       .slice(0, 40),
-    tokens: null, // deferred — needs a plugin probe pass over live event shapes
+    tokens: tokenLatest.size > 0 ? tokenTotals : null,
+    problemSessions: problemSessions.slice(0, 10),
+    unknownSkills,
   };
 
   cache = { key: scope, at: Date.now(), data };

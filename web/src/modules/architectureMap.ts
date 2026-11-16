@@ -111,6 +111,8 @@ export class ArchitectureMap {
 
   private nodesSprite: THREE.Sprite | null = null;
   private sizesAttr: THREE.InstancedBufferAttribute | null = null;
+  private colorsAttr: THREE.InstancedBufferAttribute | null = null;
+  private baseColors: Float32Array | null = null;
   private edgesMesh: THREE.LineSegments | null = null;
   private fade = uniform(1);
 
@@ -237,6 +239,7 @@ export class ArchitectureMap {
     this.rebuildEdges();
     this.buildLabels();
     this.applyKindVisibility();
+    this.applyUsageVisuals();
   }
 
   private buildNodeSprite(): void {
@@ -259,9 +262,11 @@ export class ArchitectureMap {
     const material = new THREE.PointsNodeMaterial();
     material.positionNode = instancedBufferAttribute(new THREE.InstancedBufferAttribute(positions, 3), 'vec3' as const);
     this.sizesAttr = new THREE.InstancedBufferAttribute(sizes, 1);
+    this.colorsAttr = new THREE.InstancedBufferAttribute(colors, 4);
+    this.baseColors = colors.slice();
     material.sizeNode = vec2(instancedBufferAttribute(this.sizesAttr, 'float' as const));
     material.colorNode = instancedBufferAttribute(
-      new THREE.InstancedBufferAttribute(colors, 4),
+      this.colorsAttr,
       'vec4' as const,
     ).mul(texture(glow, uv())).mul(this.fade);
     material.sizeAttenuation = true;
@@ -380,6 +385,23 @@ export class ArchitectureMap {
     }
     this.usageMax = max;
     this.refreshSizes();
+    this.applyUsageVisuals();
+  }
+
+  /** Unused skills dim once usage data exists (dead-skill detection). */
+  private applyUsageVisuals(): void {
+    if (!this.colorsAttr || !this.baseColors) return;
+    const colors = this.colorsAttr.array as Float32Array;
+    this.nodes.forEach((n, i) => {
+      if (n.kind !== 'skill') return;
+      const unused = this.skillUsage.size > 0 && this.usageMultiplier(n.label) <= 1;
+      const dim = unused ? 0.28 : 1;
+      colors[i * 4] = this.baseColors![i * 4] * dim;
+      colors[i * 4 + 1] = this.baseColors![i * 4 + 1] * dim;
+      colors[i * 4 + 2] = this.baseColors![i * 4 + 2] * dim;
+      colors[i * 4 + 3] = 1;
+    });
+    this.colorsAttr.needsUpdate = true;
   }
 
   /* --------------------------- interaction --------------------------- */

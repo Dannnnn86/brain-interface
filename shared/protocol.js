@@ -21,7 +21,16 @@ export const EVENT = {
   SESSION_IDLE: 'session.idle',
   SESSION_ERROR: 'session.error',
   SESSION_FILE: 'session.file',
+  /** Estimated session payload size (NVIDIA-cap guard). */
+  SESSION_PAYLOAD: 'session.payload',
+  /** Cumulative token + cost totals for a session (plugin-captured). */
+  SESSION_TOKENS: 'session.tokens',
+  /** Plugin (re)load handshake — a new value means a new opencode run. */
+  RUNTIME_START: 'runtime.start',
 };
+
+/** Payload pressure guard: Dan's auto-trim threshold (18 MB). */
+export const PAYLOAD_TRIM_BYTES = 18_000_000;
 
 /** Brain regions used as visual anchors (mirrors the spec's mapping). */
 export const REGIONS = [
@@ -87,6 +96,19 @@ export function normalizeEvent(raw) {
   if (Number.isFinite(raw.messageCount)) event.messageCount = Math.max(0, raw.messageCount);
   if (Array.isArray(raw.files)) event.files = raw.files.slice(0, 20).map(String);
   if (typeof raw.region === 'string') event.region = raw.region.slice(0, 40);
+  if (Number.isFinite(raw.payloadBytes)) event.payloadBytes = Math.max(0, raw.payloadBytes);
+  if (typeof raw.runId === 'string') event.runId = raw.runId.slice(0, 64);
+  if (Number.isFinite(raw.cost)) event.cost = Math.max(0, raw.cost);
+  if (raw.tokens && typeof raw.tokens === 'object') {
+    const num = (v) => (Number.isFinite(v) ? Math.max(0, v) : 0);
+    event.tokens = {
+      input: num(raw.tokens.input),
+      output: num(raw.tokens.output),
+      reasoning: num(raw.tokens.reasoning),
+      cacheRead: num(raw.tokens.cacheRead),
+      cacheWrite: num(raw.tokens.cacheWrite),
+    };
+  }
   return event;
 }
 
@@ -108,5 +130,13 @@ export function normalizeSession(raw) {
     model: typeof raw.model === 'string' ? raw.model.slice(0, 120) : '',
     startedAt: Number.isFinite(raw.startedAt) ? raw.startedAt : 0,
     lastEventAt: Number.isFinite(raw.lastEventAt) ? raw.lastEventAt : 0,
+    payloadBytes: Number.isFinite(raw.payloadBytes) ? Math.max(0, raw.payloadBytes) : 0,
+    tokens: raw.tokens && typeof raw.tokens === 'object'
+      ? {
+          in: Number.isFinite(raw.tokens.in) ? Math.max(0, raw.tokens.in) : 0,
+          out: Number.isFinite(raw.tokens.out) ? Math.max(0, raw.tokens.out) : 0,
+          cost: Number.isFinite(raw.tokens.cost) ? Math.max(0, raw.tokens.cost) : 0,
+        }
+      : undefined,
   };
 }

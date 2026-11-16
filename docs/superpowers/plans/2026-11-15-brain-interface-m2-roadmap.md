@@ -185,6 +185,41 @@ Deferred to M4: token capture from live events (probe pass when M4 starts).
 
 ---
 
+## M5 — Guardian & Insight — DONE (2026-11-15)
+
+**Parts shipped:**
+1. **Payload pressure** — plugin estimates session size incrementally (text/output
+   diffs ×1.25 + part overhead), `session.payload` events (throttled 5s); card
+   gauges + sessions-panel strip ("peak ≈ X / 18 MB · trim guard") + pulsing
+   temporal-anchor ring (cyan→amber→red, shows >40%). Simulator emits growth
+   curves + heavy sessions that exceed the cap  (verified: gauge hit 19.1/18 MB).
+2. **Tokens & cost** — plugin captures `message.updated` info (SDK-verified
+   `tokens` + opencode's own `cost`), dedupes per message, sends cumulative
+   `session.tokens`; analytics aggregates totals + per-model (tokens & cost card;
+   placeholder until a live restart feeds real data — fixtures prove the path).
+3. **Error episodes → problem sessions** — analytics clusters errors per session
+   (10-min gaps), top-10 card; **click a row = instant replay** (verified).
+4. **Dead-skill detection** — map dims zero-invocation skills to 28% once usage
+   data is loaded; analytics lists unrecognized skill calls (already caught a
+   real one: `unknown×2` from title-less skill parts).
+5. **Bloom + data-driven brain** — TSL bloom (strength 0.35, WebGPU-only,
+   try/catch fallback — verified active in QA, 59fps headless); cloud brightness
+   follows live events/min (smoothed activity uniform).
+6. **Left panel = this opencode run** — plugin sends `runtime.start` handshake;
+   server resets the live deck per run; WS = live-only, REST/rpc = full catalog;
+   picker fetches the catalog on open (up to 500 rows); empty deck shows a hint
+   card. (opencode exposes no tab-state API — "open" = active since app launch.)
+7. **500-session cutoff** — server tracks max 500 (oldest idle/completed evicted
+   first; memory/lists only — vault files never touched); evicted ids still
+   resolve via index.md scan for replay.
+
+**Tests:** smoke **17/17** (payload/token persistence, runtime handshake deck
+reset, analytics shapes), qa-interact **22/22** (gauges, strip, problem-click →
+replay, all prior flows). Vision: bloom glow confirmed, no defects.
+
+**After Dan's next opencode restart:** confirm live `session.payload` +
+`session.tokens` in the server log / analytics tokens card.
+
 ## Parking lot (later / on request)
 
 - WebM export of the brain view (canvas.captureStream + MediaRecorder).

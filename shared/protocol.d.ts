@@ -13,8 +13,14 @@ export declare const EVENT: {
   readonly SESSION_IDLE: 'session.idle';
   readonly SESSION_ERROR: 'session.error';
   readonly SESSION_FILE: 'session.file';
+  readonly SESSION_PAYLOAD: 'session.payload';
+  readonly SESSION_TOKENS: 'session.tokens';
+  readonly RUNTIME_START: 'runtime.start';
 };
 export type EventType = (typeof EVENT)[keyof typeof EVENT];
+
+/** Payload pressure guard threshold in bytes (18 MB auto-trim). */
+export declare const PAYLOAD_TRIM_BYTES: number;
 
 export declare const REGIONS: readonly [
   'frontal', 'temporal', 'parietal', 'occipital', 'cerebellum', 'brainstem',
@@ -39,6 +45,14 @@ export declare function impulsePathFor(type: string): ImpulsePath;
 
 export type SessionStatus = 'live' | 'idle' | 'error' | 'archived';
 
+export interface TokenTotals {
+  input: number;
+  output: number;
+  reasoning: number;
+  cacheRead: number;
+  cacheWrite: number;
+}
+
 export interface SystemEvent {
   type: EventType | string;
   sessionId: string;
@@ -55,6 +69,14 @@ export interface SystemEvent {
   messageCount?: number;
   files?: string[];
   region?: string;
+  /** Estimated session payload size in bytes (pressure guard). */
+  payloadBytes?: number;
+  /** Cumulative per-session token totals (plugin-captured). */
+  tokens?: TokenTotals;
+  /** opencode's own computed cost for the session (USD). */
+  cost?: number;
+  /** Plugin run id (runtime.start handshake). */
+  runId?: string;
 }
 
 export interface SessionSummary {
@@ -70,6 +92,10 @@ export interface SessionSummary {
   model?: string;
   startedAt?: number;
   lastEventAt?: number;
+  /** Latest estimated payload size in bytes. */
+  payloadBytes?: number;
+  /** Cumulative token + cost totals. */
+  tokens?: { in: number; out: number; cost: number };
 }
 
 export interface ProviderInfo {
@@ -170,14 +196,36 @@ export interface AnalyticsResponse {
   byType: Record<string, number>;
   toolHealth: ToolHealthEntry[];
   activity: { days: Array<{ day: string; events: number; sessions: number }> };
-  models: Array<{ model: string; events: number; sessions: number }>;
+  models: Array<{
+    model: string;
+    events: number;
+    sessions: number;
+    tokens: { input: number; output: number; cost: number } | null;
+  }>;
   heatmap: { rows: number[][] }; // 7 rows (Mon=0) × 24 cols
   errors: {
     total: number;
     recent: Array<{ at: number; sessionId: string; simulated: boolean; error: string }>;
   };
   skillUsage: Array<{ skill: string; calls: number }>;
-  tokens: null | { input: number; output: number };
+  tokens: null | {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    cost: number;
+    sessions: number;
+  };
+  problemSessions: Array<{
+    sessionId: string;
+    title: string;
+    errors: number;
+    episodes: number;
+    firstAt: number;
+    lastAt: number;
+    simulated: boolean;
+  }>;
+  unknownSkills: Array<{ skill: string; calls: number }>;
 }
 
 export interface TimelineFrame {

@@ -27,6 +27,8 @@ export class Ingest {
     this.sessionsTimer = null;
     /** sessions already announced in the log (avoid per-event spam) */
     this.seenSessions = new Set();
+    /** Current opencode run id (runtime.start handshake). */
+    this.runId = null;
 
     this.sweepTimer = setInterval(() => this.sweepIdle(), SWEEP_MS);
     this.sweepTimer.unref?.();
@@ -36,6 +38,20 @@ export class Ingest {
   handle(raw) {
     const event = normalizeEvent(raw);
     if (!event) return null;
+
+    // New opencode run → previous run's sessions leave the live deck (they
+    // remain fully replayable via recordings/transcripts).
+    if (event.type === EVENT.RUNTIME_START && event.runId) {
+      if (event.runId !== this.runId) {
+        const previousCount = this.store.listLive().length;
+        this.store.clearLive();
+        this.runId = event.runId;
+        this.log(`opencode run ${event.runId.slice(0, 8)} started — live deck reset (${previousCount} carried over)`);
+      }
+      this.recorder?.append(event);
+      this.broadcastSessions();
+      return event;
+    }
 
     this.feed.push(event);
     if (this.feed.length > FEED_MAX) this.feed.splice(0, this.feed.length - FEED_MAX);
@@ -112,6 +128,19 @@ export class Ingest {
         // Disk-side announcement — nothing to maintain live beyond presence.
         next.status = next.status === 'live' ? 'live' : 'idle';
         break;
+      case EVENT.SESSION_PAYLOAD:
+        next.payloadBytes = event.payloadBytes ?? next.payloadBytes ?? 0;
+        break;
+      case EVENT.SESSION_TOKENS:
+        if (event.tokens) {
+          // Plugin sends cumulative per-session totals — latest wins.
+          next.tokens = {
+            in: event.tokens.input + event.tokens.cacheRead,
+            out: event.tokens.output + event.tokens.reasoning,
+            cost: event.cost ?? next.tokens?.cost ?? 0,
+          };
+        }
+        break;
       default:
         break;
     }
@@ -123,7 +152,7 @@ export class Ingest {
   sweepIdle() {
     const now = Date.now();
     let changed = false;
-    for (const s of this.store.list()) {
+    for (const s of this.store.listLive()) {
       if (s.status === 'live' && s.lastEventAt && now - s.lastEventAt > AUTO_IDLE_MS) {
         const live = this.store.getLive(s.id);
         if (live) {
@@ -145,9 +174,9 @@ export class Ingest {
   }
 
   broadcastSessions() {
-    // WS payloads are capped; the full list stays available via /api/sessions
-    // for future analytics/replay modules. Live sessions sort first.
-    this.hub.broadcast({ kind: 'sessions', sessions: this.store.list().slice(0, 120) });
+    // The live deck carries THIS opencode run's sessions only. The full
+    // catalog stays available via /api/sessions + rpc getSessions (picker).
+    this.hub.broadcast({ kind: 'sessions', sessions: this.store.listLive() });
   }
 
   close() {

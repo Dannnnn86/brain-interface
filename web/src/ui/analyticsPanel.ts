@@ -106,9 +106,13 @@ export class AnalyticsPanel {
   private toolBody: HTMLElement;
   private sparkCanvas: HTMLCanvasElement;
   private sparkMeta: HTMLElement;
+  private tokensBody: HTMLElement;
+  private tokensMeta: HTMLElement;
   private modelsBody: HTMLElement;
   private heatEl: HTMLElement;
   private skillsBody: HTMLElement;
+  private skillsNote: HTMLElement;
+  private problemsBody: HTMLElement;
   private errorsBody: HTMLElement;
   private open = false;
   private lastData: AnalyticsResponse | null = null;
@@ -116,6 +120,8 @@ export class AnalyticsPanel {
 
   onScope: ((scope: 'all' | 'real') => void) | null = null;
   onClose: (() => void) | null = null;
+  /** Fired when a problem-session row is clicked (opens it in replay). */
+  onSessionOpen: ((sessionId: string) => void) | null = null;
 
   constructor(hudRoot: HTMLElement) {
     this.root = el('div', 'panel', hudRoot);
@@ -160,6 +166,12 @@ export class AnalyticsPanel {
     this.sparkCanvas = el('canvas', 'an-spark', actCard) as HTMLCanvasElement;
     this.sparkMeta = el('div', 'an-spark-meta', actCard);
 
+    /* tokens & cost */
+    const tokenCard = el('div', 'an-card', this.root);
+    el('h4', undefined, tokenCard).textContent = 'tokens & cost';
+    this.tokensMeta = el('div', 'an-spark-meta', tokenCard);
+    this.tokensBody = el('div', 'an-bars', tokenCard);
+
     /* models */
     const modelCard = el('div', 'an-card', this.root);
     el('h4', undefined, modelCard).textContent = 'models';
@@ -174,6 +186,13 @@ export class AnalyticsPanel {
     const skillCard = el('div', 'an-card', this.root);
     el('h4', undefined, skillCard).textContent = 'top skills';
     this.skillsBody = el('div', 'an-bars', skillCard);
+    this.skillsNote = el('div', 'an-none', skillCard);
+    this.skillsNote.style.display = 'none';
+
+    /* problem sessions (click = replay) */
+    const problemCard = el('div', 'an-card', this.root);
+    el('h4', undefined, problemCard).textContent = 'problem sessions · click to replay';
+    this.problemsBody = el('div', 'an-errors', problemCard);
 
     /* errors */
     const errCard = el('div', 'an-card', this.root);
@@ -256,6 +275,34 @@ export class AnalyticsPanel {
     const totalRecent = data.activity.days.reduce((a, d) => a + d.events, 0);
     this.sparkMeta.textContent = `${totalRecent.toLocaleString()} events · peak ${peakEvents.toLocaleString()}/day · cyan events / violet sessions`;
 
+    /* tokens & cost (from live plugin capture) */
+    if (data.tokens && data.tokens.sessions > 0) {
+      const t = data.tokens;
+      this.tokensMeta.textContent = `${fmtNum(t.input + t.output)} fresh tokens · ${fmtNum(t.cacheRead + t.cacheWrite)} cached · ${t.sessions} sessions · $${t.cost.toFixed(4)}`;
+      this.renderBars(
+        this.tokensBody,
+        data.models
+          .filter((m) => m.tokens && m.tokens.input + m.tokens.output > 0)
+          .slice(0, 8)
+          .map((m) => {
+            const total = m.tokens!.input + m.tokens!.output;
+            return {
+              label: m.model.split('/').pop() || m.model,
+              value: total,
+              right: `${fmtNum(total)} tk · $${m.tokens!.cost.toFixed(4)}`,
+              color: modelColor(m.model),
+              dot: modelColor(m.model),
+            };
+          }),
+      );
+      if (!this.tokensBody.children.length) {
+        el('div', 'an-none', this.tokensBody).textContent = 'token data is per-model — none attributed yet';
+      }
+    } else {
+      this.tokensMeta.textContent = 'no token data yet — live capture arrives after the next opencode restart';
+      this.tokensBody.replaceChildren();
+    }
+
     /* models */
     this.renderBars(
       this.modelsBody,
@@ -281,6 +328,29 @@ export class AnalyticsPanel {
         color: '#7ae0c8',
       })),
     );
+    if (data.unknownSkills.length > 0) {
+      this.skillsNote.style.display = '';
+      this.skillsNote.textContent = `unrecognized: ${data.unknownSkills.map((u) => `${u.skill}×${u.calls}`).join(', ')}`;
+    } else {
+      this.skillsNote.style.display = 'none';
+    }
+
+    /* problem sessions (click = replay) */
+    this.problemsBody.replaceChildren();
+    if (data.problemSessions.length === 0) {
+      el('div', 'an-none', this.problemsBody).textContent = 'no problem sessions — clean run';
+    } else {
+      for (const p of data.problemSessions) {
+        const row = el('div', 'an-error-row clickable', this.problemsBody);
+        el('span', 't', row).textContent = `${p.errors}×`;
+        el('span', 'ses', row).textContent = p.sessionId.slice(-6);
+        el('span', 'msg', row).textContent = `${p.episodes} episode${p.episodes > 1 ? 's' : ''} · ${p.title}`;
+        const when = el('span', 't', row);
+        when.textContent = new Date(p.lastAt).toLocaleDateString([], { month: '2-digit', day: '2-digit' });
+        row.title = 'click to replay this session';
+        row.addEventListener('click', () => this.onSessionOpen?.(p.sessionId));
+      }
+    }
 
     /* errors */
     this.errorsBody.replaceChildren();

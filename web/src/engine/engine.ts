@@ -7,6 +7,8 @@
  */
 import * as THREE from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { pass } from 'three/tsl';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { animate } from 'animejs';
 
 export type FrameHook = (dt: number, t: number) => void;
@@ -72,6 +74,21 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
   controls.enablePan = false;
   controls.update();
 
+  // Bloom post-processing (WebGPU only; try/catch → plain render fallback).
+  let postProcessing: THREE.PostProcessing | null = null;
+  if (backend === 'webgpu') {
+    try {
+      const scenePass = pass(scene, camera);
+      const bloomNode = bloom(scenePass.getTextureNode(), 0.35, 0.55, 0.8);
+      postProcessing = new THREE.PostProcessing(renderer);
+      postProcessing.outputNode = scenePass.add(bloomNode);
+      console.info('[engine] bloom enabled');
+    } catch (err) {
+      console.warn('[engine] bloom unavailable, plain render:', err);
+      postProcessing = null;
+    }
+  }
+
   const hooks: FrameHook[] = [];
   let prevFrameAt = performance.now();
   let elapsed = 0;
@@ -101,7 +118,8 @@ export async function createEngine(canvas: HTMLCanvasElement): Promise<Engine> {
         console.error('[engine] frame hook error:', err);
       }
     }
-    renderer.render(scene, camera);
+    if (postProcessing) postProcessing.render();
+    else renderer.render(scene, camera);
   });
 
   let flight: { cancel: () => void } | null = null;

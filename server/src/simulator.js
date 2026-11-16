@@ -5,7 +5,7 @@
  * stream through the exact same ingest pipeline as the real plugin, so the
  * end-to-end path (ingest → store → broadcast → visuals) is always exercised.
  */
-import { EVENT } from '../../shared/protocol.js';
+import { EVENT, PAYLOAD_TRIM_BYTES } from '../../shared/protocol.js';
 
 const TITLES = [
   'fix trim-session payload bug',
@@ -78,6 +78,9 @@ export class Simulator {
     // Keep the array bounded: finished sessions are history, not participants.
     this.sessions = this.sessions.filter((s) => !s.done);
     const id = `sim-${String(++this.counter).padStart(3, '0')}-${Math.random().toString(36).slice(2, 6)}`;
+    // ~1 in 6 sessions is a "heavy" one that races toward the trim threshold —
+    // exercises the pressure ring + gauges end-to-end.
+    const heavy = Math.random() < 0.17;
     const session = {
       id,
       title: pick(TITLES),
@@ -86,10 +89,43 @@ export class Simulator {
       pendingTools: 0,
       lifetime: rint(25, 70),
       born: Date.now(),
+      payloadBytes: heavy ? rint(9_000_000, 13_000_000) : rint(200_000, 900_000),
+      payloadRate: heavy ? rint(400_000, 700_000) : rint(15_000, 90_000),
+      tokens: { input: rint(20_000, 60_000), output: rint(2_000, 8_000), cacheRead: rint(5_000, 40_000), cacheWrite: 0 },
+      cost: 0,
     };
     this.sessions.push(session);
     this.emit(session, EVENT.SESSION_START, { title: session.title, model: session.model });
+    this.emitPayload(session);
     return session;
+  }
+
+  /** Cumulative token totals + cost (shapes mirror the live plugin capture). */
+  growTokens(session) {
+    session.tokens.input += rint(1_500, 9_000);
+    session.tokens.output += rint(150, 1_400);
+    session.tokens.cacheRead += rint(1_000, 6_000);
+    session.cost += Math.random() * 0.002;
+    this.onEvent({
+      type: EVENT.SESSION_TOKENS,
+      sessionId: session.id,
+      at: Date.now(),
+      simulated: true,
+      model: session.model,
+      tokens: { ...session.tokens, reasoning: 0 },
+      cost: Math.round(session.cost * 10000) / 10000,
+    });
+  }
+
+  /** Estimated payload size event. */
+  emitPayload(session) {
+    this.onEvent({
+      type: EVENT.SESSION_PAYLOAD,
+      sessionId: session.id,
+      at: Date.now(),
+      simulated: true,
+      payloadBytes: Math.round(session.payloadBytes),
+    });
   }
 
   emit(session, type, extra = {}) {
@@ -118,9 +154,19 @@ export class Simulator {
     const session = pick(live);
     session.messages += 1;
 
+    // Payload growth + periodic payload events.
+    session.payloadBytes = Math.min(
+      PAYLOAD_TRIM_BYTES * 1.06,
+      session.payloadBytes + session.payloadRate * (0.6 + Math.random() * 0.8),
+    );
+    if (Math.random() < 0.22) this.emitPayload(session);
+    if (Math.random() < 0.3) this.growTokens(session);
+
     if (session.messages >= session.lifetime) {
       session.done = true;
       this.emit(session, EVENT.SESSION_IDLE, { messageCount: session.messages });
+      this.growTokens(session);
+      this.emitPayload(session);
       this.log(`sim session ${session.id} finished (${session.messages} messages)`);
       return;
     }

@@ -7,7 +7,7 @@
  * (impulses.ts calls flashRegion).
  */
 import * as THREE from 'three/webgpu';
-import { makeGlowTexture } from './engine.js';
+import { makeGlowTexture, makeRingTexture } from './engine.js';
 
 export type RegionName =
   | 'frontal'
@@ -56,6 +56,8 @@ export interface Regions {
   setVisible(v: boolean): void;
   /** Analytics heat: 0..1 activity share per region swells its orb. */
   setActivityShare(share: Partial<Record<RegionName, number>> | null): void;
+  /** Payload pressure ring at the temporal anchor (worst live session). */
+  setPressure(pressure: { ratio: number } | null): void;
 }
 
 export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regions {
@@ -97,10 +99,28 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
 
   scene.add(group);
 
+  // Payload pressure ring (trim-threshold guard) at the temporal anchor.
+  const pressureMat = new THREE.SpriteMaterial({
+    map: makeRingTexture(),
+    color: 0x00d4ff,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const pressureSprite = new THREE.Sprite(pressureMat);
+  pressureSprite.position.copy(anchors.temporal);
+  pressureSprite.scale.setScalar(0.001);
+  pressureSprite.visible = false;
+  group.add(pressureSprite);
+
   const projected = new THREE.Vector3();
   let fade = 1;
   let visible = true;
   let activity: Partial<Record<RegionName, number>> | null = null;
+  let pressure: { ratio: number } | null = null;
+
+  const PRESSURE_SHOW = 0.4; // below this, ring stays hidden
 
   return {
     anchors,
@@ -108,6 +128,10 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
 
     setActivityShare(share) {
       activity = share;
+    },
+
+    setPressure(p) {
+      pressure = p;
     },
 
     setFade(v) {
@@ -134,6 +158,24 @@ export function createRegions(scene: THREE.Scene, labelsRoot: HTMLElement): Regi
     update(_dt, t, camera, size) {
       if (!visible) return;
       const now = performance.now();
+
+      // Pressure ring: scale + color encode payload proximity to the trim cap.
+      if (pressure && pressure.ratio > PRESSURE_SHOW) {
+        const r = THREE.MathUtils.clamp(pressure.ratio, 0, 1.1);
+        const pulse = 1 + Math.sin(t * 2.4) * 0.06;
+        pressureSprite.visible = true;
+        pressureSprite.scale.setScalar((58 + r * 130) * pulse);
+        const c = pressureMat.color;
+        if (r < 0.7) {
+          c.setHex(0x00d4ff).lerp(new THREE.Color(0xffb020), (r - PRESSURE_SHOW) / (0.7 - PRESSURE_SHOW));
+        } else {
+          c.setHex(0xffb020).lerp(new THREE.Color(0xff0044), (r - 0.7) / 0.4);
+        }
+        pressureMat.opacity = (0.2 + 0.4 * r) * fade;
+      } else if (pressureSprite.visible) {
+        pressureSprite.visible = false;
+        pressureMat.opacity = 0;
+      }
       for (const orb of orbs) {
         // Gentle independent pulse + analytics activity swell.
         const pulse = 1 + Math.sin(t * 1.1 + orb.phase) * 0.09;

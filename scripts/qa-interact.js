@@ -305,10 +305,50 @@ try {
   })()`);
   check('scope toggle refetches (real)', scoped.active === 'REAL', scoped.sub.slice(0, 70));
 
+  /* ---- 10. pressure gauges on live cards (M5) ---- */
+  const pressure = await evaluate(`({
+    gauges: document.querySelectorAll('.pressure').length,
+    visibleGauges: Array.from(document.querySelectorAll('.pressure')).filter((n) => n.style.display !== 'none').length,
+    strip: document.getElementById('payload-strip')?.style.display !== 'none',
+    stripText: document.querySelector('.payload-strip-top')?.textContent ?? '',
+  })`);
+  check(
+    'payload gauges render on live cards',
+    pressure.visibleGauges > 0,
+    `${pressure.visibleGauges}/${pressure.gauges} gauges · strip=${pressure.strip} "${pressure.stripText.trim()}"`,
+  );
+
   await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
   await sleep(400);
   const anClosed = await evaluate(`window.__brain?.analyticsOpen?.() ?? true`);
   check('Esc closes analytics', anClosed === false);
+
+  /* ---- 11. problem-session click → replay (M5) ---- */
+  await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))`);
+  await sleep(1800);
+  const problemClick = await evaluate(`(async () => {
+    // ensure ALL scope so simulated problems (which exist) are included
+    const allBtn = Array.from(document.querySelectorAll('.an-scope-btn')).find((b) => b.textContent === 'ALL');
+    if (allBtn && !allBtn.classList.contains('active')) {
+      allBtn.click();
+      await new Promise((r) => setTimeout(r, 1800));
+    }
+    const row = document.querySelector('.an-error-row.clickable');
+    if (!row) return { ok: false, why: 'no problem rows' };
+    const label = row.textContent.slice(0, 40);
+    row.click();
+    await new Promise((r) => setTimeout(r, 1500));
+    const b = window.__brain;
+    return { ok: true, label, mode: b.mode(), replayActive: b.replayState().active };
+  })()`);
+  check(
+    'problem session click opens replay',
+    problemClick?.ok === true && problemClick.mode === 'replay' && problemClick.replayActive === true,
+    problemClick ? `${problemClick.label}…` : 'no rows',
+  );
+
+  await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))`);
+  await sleep(400);
 
   ws.close();
   chrome.kill();
