@@ -91,3 +91,14 @@ Project scaffolded at `D:\projects\44-brain-interface`. Design spec approved; im
   vault files untouched); evicted ids replay via index.md scan.
 - Tests: smoke 17/17, qa-interact 22/22, vision clean. Plugin deployed —
   live payload/tokens verify on next opencode restart.
+
+## 2026-11-15 — Auto-start at logon
+- Scheduled task `BrainInterfaceServer` registered (current user, at logon):
+  runs scripts/start-server.vbs (invisible wscript) → node server/src/index.js
+  --serve-web on :3030, restarts up to 3× on crash, log at
+  data/server-autostart.log. Management: npm run autostart:{install,remove,
+  start,stop,status}.
+- Production URL: http://localhost:3030 (serves built UI; live mode, no sim).
+- dev/sim now detect an occupied :3030 and reuse the running server instead of
+  failing (dev UI proxies to it).
+- Verified live: task started the server (pid 11064), health ok, web 200.

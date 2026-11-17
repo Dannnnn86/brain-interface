@@ -28,18 +28,37 @@ Prerequisites: Node 24+.
 
 ```bash
 npm install          # once
-
-# demo mode — synthetic sessions so you can see everything working
-npm run sim          # server (:3030, --simulate) + web UI (:4200)
-
-# live mode — real opencode events + vault file watching
-npm run dev
+npm run build        # build web/dist (needed for production mode)
 ```
 
-Open **http://localhost:4200**.
+### Auto-start (recommended)
 
-Stopping: `Ctrl+C` in the terminal running `npm run dev`/`sim`.
-If processes are orphaned: kill the PIDs listening on :3030 / :4200.
+The production server (one port, :3030, serving the built UI) starts hidden at
+every logon via a Windows scheduled task, and restarts itself up to 3× on crash:
+
+```bash
+npm run autostart:install   # register the task (already done on this machine)
+npm run autostart:status    # task state + port 3030 check
+npm run autostart:stop      # pause it
+npm run autostart:start     # resume it
+npm run autostart:remove    # uninstall the task
+```
+
+Then open **http://localhost:3030** — bookmark it.
+Log file: `data/server-autostart.log`.
+
+> The production UI is the **built** app — after pulling code changes run
+> `npm run build` and restart the task (`autostart:stop` + `autostart:start`).
+
+### Development mode
+
+```bash
+npm run sim          # server with --simulate + Vite dev UI (:4200), hot reload
+npm run dev          # live: plugin events + vault watching + Vite dev UI
+```
+
+If the auto-started server already occupies :3030, `dev`/`sim` reuse it and
+only spawn the Vite UI (the dev UI proxies API/WS to :3030).
 
 ## Live events (opencode plugin)
 
@@ -98,7 +117,7 @@ shared/protocol.js(.d.ts)   wire protocol shared by all three
 
 | Service | Port | Override |
 |---------|------|----------|
-| API + WS | 3030 | `BRAIN_PORT` |
+| Production (auto-start task) | 3030 | `BRAIN_PORT` |
 | Vite dev | 4200 | `WEB_PORT` |
 
 ## Troubleshooting

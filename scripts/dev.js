@@ -59,10 +59,29 @@ function run(name, args, cwd) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 
+const BRAIN_PORT = process.env.BRAIN_PORT || 3030;
+
 console.log('[dev] starting brain-interface' + (simulate ? ' (SIMULATE mode)' : ''));
 console.log('[dev] web UI will be at  http://localhost:' + (process.env.WEB_PORT || 4200));
-console.log('[dev] api/ws backend at   http://127.0.0.1:' + (process.env.BRAIN_PORT || 3030));
+console.log('[dev] api/ws backend at   http://127.0.0.1:' + BRAIN_PORT);
 
-run('server', ['server/src/index.js', ...(simulate ? ['--simulate'] : [])], root);
-// vite is hoisted to the workspace root node_modules by npm
-run('web', [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js')], path.join(root, 'web'));
+// If a server is already running on the port (e.g. the auto-start task),
+// reuse it instead of failing with EADDRINUSE.
+async function serverAlreadyRunning() {
+  try {
+    const res = await fetch(`http://127.0.0.1:${BRAIN_PORT}/api/health`, { signal: AbortSignal.timeout(1500) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+serverAlreadyRunning().then((running) => {
+  if (running) {
+    console.log(`[dev] server already live on :${BRAIN_PORT} (auto-start task?) — reusing it`);
+  } else {
+    run('server', ['server/src/index.js', ...(simulate ? ['--simulate'] : [])], root);
+  }
+  // vite is hoisted to the workspace root node_modules by npm
+  run('web', [path.join(root, 'node_modules', 'vite', 'bin', 'vite.js')], path.join(root, 'web'));
+});

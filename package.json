@@ -13,7 +13,12 @@
     "sim": "node scripts/dev.js --simulate",
     "server": "node server/src/index.js",
     "build": "npm run build -w web",
-    "start": "node server/src/index.js --serve-web"
+    "start": "node server/src/index.js --serve-web",
+    "autostart:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/autostart.ps1 -Action install",
+    "autostart:remove": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/autostart.ps1 -Action remove",
+    "autostart:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/autostart.ps1 -Action start",
+    "autostart:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/autostart.ps1 -Action stop",
+    "autostart:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/autostart.ps1 -Action status"
   },
   "engines": {
     "node": ">=24"
