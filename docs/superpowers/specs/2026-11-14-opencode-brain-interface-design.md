@@ -1,14 +1,14 @@
----
-title: "opencode Brain Interface — 3D System Visualization"
+﻿---
+title: "opencode Brain Interface â€” 3D System Visualization"
 status: draft
 created: 2026-11-14
 last_reviewed: 2026-11-14
 tags: [opencode, visualization, webgpu, threejs, architecture, brain-interface]
 ---
 
-# opencode Brain Interface — 3D System Visualization
+# opencode Brain Interface â€” 3D System Visualization
 
-**A single-page WebGPU application that visualizes the entire opencode system as an interactive 3D brain — live sessions, system architecture, historical replay, and analytics in one immersive neural interface.**
+**A single-page WebGPU application that visualizes the entire opencode system as an interactive 3D brain â€” live sessions, system architecture, historical replay, and analytics in one immersive neural interface.**
 
 ---
 
@@ -16,36 +16,36 @@ tags: [opencode, visualization, webgpu, threejs, architecture, brain-interface]
 
 ### 1.1 Purpose
 Create a **comprehensive brain interface** for opencode that unifies:
-- **Real-time session monitoring** — watch active sessions as neural firing patterns
-- **Time-travel session replay** — scrub through completed sessions frame-by-frame
-- **System architecture exploration** — navigate skills, MCP servers, agents, providers as brain regions
-- **Development analytics** — token costs, skill usage patterns, bottleneck detection
+- **Real-time session monitoring** â€” watch active sessions as neural firing patterns
+- **Time-travel session replay** â€” scrub through completed sessions frame-by-frame
+- **System architecture exploration** â€” navigate skills, MCP servers, agents, providers as brain regions
+- **Development analytics** â€” token costs, skill usage patterns, bottleneck detection
 
 ### 1.2 Core Metaphor: The Neural Brain
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    OPENDCODE BRAIN                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  FRONTAL    │  │  TEMPORAL   │  │  PARIETAL           │  │
-│  │  LOBE       │  │  LOBE       │  │  LOBE               │  │
-│  │  Planning   │  │  Memory     │  │  Integration        │  │
-│  │  (Agents)   │  │  (Sessions) │  │  (MCP Bridge)       │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  OCCIPITAL  │  │  CEREBELLUM │  │  BRAINSTEM          │  │
-│  │  LOBE       │  │  (Skills)   │  │  (Core Runtime)     │  │
-│  │  (Visual    │  │  Procedural │  │  Providers, Config  │  │
-│  │   Output)   │  │  Memory)    │  │                     │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                    OPENDCODE BRAIN                          â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”‚
+â”‚  â”‚  FRONTAL    â”‚  â”‚  TEMPORAL   â”‚  â”‚  PARIETAL           â”‚  â”‚
+â”‚  â”‚  LOBE       â”‚  â”‚  LOBE       â”‚  â”‚  LOBE               â”‚  â”‚
+â”‚  â”‚  Planning   â”‚  â”‚  Memory     â”‚  â”‚  Integration        â”‚  â”‚
+â”‚  â”‚  (Agents)   â”‚  â”‚  (Sessions) â”‚  â”‚  (MCP Bridge)       â”‚  â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”‚
+â”‚  â”‚  OCCIPITAL  â”‚  â”‚  CEREBELLUM â”‚  â”‚  BRAINSTEM          â”‚  â”‚
+â”‚  â”‚  LOBE       â”‚  â”‚  (Skills)   â”‚  â”‚  (Core Runtime)     â”‚  â”‚
+â”‚  â”‚  (Visual    â”‚  â”‚  Procedural â”‚  â”‚  Providers, Config  â”‚  â”‚
+â”‚  â”‚   Output)   â”‚  â”‚  Memory)    â”‚  â”‚                     â”‚  â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ### 1.3 Success Criteria
 - **60 FPS** on modern GPUs (RTX 3060+ / M1+), graceful fallback to Three.js WebGL
-- **< 100ms latency** from opencode event → visual update (WebSocket path)
+- **< 100ms latency** from opencode event â†’ visual update (WebSocket path)
 - **Sub-second load** for 1000+ session replay
-- **Zero config** — auto-discovers vault, sessions, opencode config
-- **Extensible** — new visualization modules plug into core engine
+- **Zero config** â€” auto-discovers vault, sessions, opencode config
+- **Extensible** â€” new visualization modules plug into core engine
 
 ---
 
@@ -54,28 +54,28 @@ Create a **comprehensive brain interface** for opencode that unifies:
 ### 2.1 High-Level Data Flow
 
 ```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│   opencode       │     │   Brain Interface │     │   Browser        │
-│   (Desktop/CLI)  │     │   (Standalone)    │     │   (Client)       │
-└────────┬─────────┘     └────────┬─────────┘     └────────┬─────────┘
-         │                        │                        │
-         │ 1. Plugin: WS Server   │                        │
-         │◄───────────────────────│                        │
-         │                        │                        │
-         │ 2. Session Events      │                        │
-         │───────────────────────►│                        │
-         │                        │                        │
-         │ 3. File Watcher        │                        │
-         │ (sessions/ vault)      │                        │
-         │◄───────────────────────│                        │
-         │                        │                        │
-         │ 4. MCP Bridge Query    │                        │
-         │◄───────────────────────│                        │
-         │                        │                        │
-         │                    5. Render Loop (WebGPU)     │
-         │                    ◄───────────────────────────│
-         │                    6. User Interaction         │
-         │                    ───────────────────────────►│
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚   opencode       â”‚     â”‚   Brain Interface â”‚     â”‚   Browser        â”‚
+â”‚   (Desktop/CLI)  â”‚     â”‚   (Standalone)    â”‚     â”‚   (Client)       â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+         â”‚                        â”‚                        â”‚
+         â”‚ 1. Plugin: WS Server   â”‚                        â”‚
+         â”‚â—„â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”‚                        â”‚
+         â”‚                        â”‚                        â”‚
+         â”‚ 2. Session Events      â”‚                        â”‚
+         â”‚â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–ºâ”‚                        â”‚
+         â”‚                        â”‚                        â”‚
+         â”‚ 3. File Watcher        â”‚                        â”‚
+         â”‚ (sessions/ vault)      â”‚                        â”‚
+         â”‚â—„â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”‚                        â”‚
+         â”‚                        â”‚                        â”‚
+         â”‚ 4. MCP Bridge Query    â”‚                        â”‚
+         â”‚â—„â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”‚                        â”‚
+         â”‚                        â”‚                        â”‚
+         â”‚                    5. Render Loop (WebGPU)     â”‚
+         â”‚                    â—„â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”‚
+         â”‚                    6. User Interaction         â”‚
+         â”‚                    â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–ºâ”‚
 ```
 
 ### 2.2 Components
@@ -86,14 +86,14 @@ Create a **comprehensive brain interface** for opencode that unifies:
 | **WebGPU Engine** | Three.js r160+ + WebGPURenderer | Scene graph, compute shaders, render loop, post-processing |
 | **Data Layer** | IndexedDB + Web Workers | Session caching, incremental parsing, query engine |
 | **Visualization Modules** | TypeScript + Three.js | Session Monitor, Replay, Architecture Map, Analytics |
-| **UI Layer** | Vanilla TS + CSS Custom Properties | HUD, controls, panels, settings (no React — performance) |
+| **UI Layer** | Vanilla TS + CSS Custom Properties | HUD, controls, panels, settings (no React â€” performance) |
 
 ### 2.3 opencode Plugin (`brain-interface-plugin`)
 
 **Location:** `~/.config/opencode/plugins/brain-interface/`
 
 ```typescript
-// plugin.ts — Main entry
+// plugin.ts â€” Main entry
 export const BrainInterfacePlugin = async ({ client, directory }) => {
   // 1. Start WebSocket server on localhost:3030
   // 2. Subscribe to session events (status, message, tool calls)
@@ -116,7 +116,7 @@ export const BrainInterfacePlugin = async ({ client, directory }) => {
 
 **WebSocket Protocol:**
 ```json
-// Server → Client (event stream)
+// Server â†’ Client (event stream)
 { "type": "session.start", "sessionId": "ses_...", "title": "...", "model": "..." }
 { "type": "message.delta", "sessionId": "ses_...", "messageIndex": 5, "part": {...} }
 { "type": "tool.call", "sessionId": "ses_...", "tool": "bash", "args": {...}, "startTime": 123 }
@@ -124,7 +124,7 @@ export const BrainInterfacePlugin = async ({ client, directory }) => {
 { "type": "session.idle", "sessionId": "ses_...", "messageCount": 47 }
 { "type": "session.error", "sessionId": "ses_...", "error": "..." }
 
-// Client → Server (RPC)
+// Client â†’ Server (RPC)
 { "id": 1, "method": "getSystemState", "params": {} }
 { "id": 2, "method": "replaySession", "params": { "sessionId": "ses_...", "speed": 2.0 } }
 ```
@@ -132,24 +132,24 @@ export const BrainInterfacePlugin = async ({ client, directory }) => {
 ### 2.4 Data Layer (Browser)
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                    DATA LAYER (IndexedDB)                  │
-├────────────────────────────────────────────────────────────┤
-│  sessions/       │  Transcripts, parsed messages, metadata │
-│  system/         │  Providers, agents, skills, MCPs, config│
-│  replay/         │  Pre-computed frame data for scrubbing  │
-│  analytics/      │  Aggregated metrics, token costs, usage │
-└────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌────────────────────────────────────────────────────────────┐
-│                    QUERY ENGINE (Web Worker)               │
-├────────────────────────────────────────────────────────────┤
-│  • Incremental transcript parsing (streaming JSON)         │
-│  • Session search/filter (tags, dates, files, tools)       │
-│  • Analytics aggregations (token trends, skill frequency)  │
-│  • Replay frame generation (time → visual state)           │
-└────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                    DATA LAYER (IndexedDB)                  â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  sessions/       â”‚  Transcripts, parsed messages, metadata â”‚
+â”‚  system/         â”‚  Providers, agents, skills, MCPs, configâ”‚
+â”‚  replay/         â”‚  Pre-computed frame data for scrubbing  â”‚
+â”‚  analytics/      â”‚  Aggregated metrics, token costs, usage â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+         â”‚
+         â–¼
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                    QUERY ENGINE (Web Worker)               â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚  â€¢ Incremental transcript parsing (streaming JSON)         â”‚
+â”‚  â€¢ Session search/filter (tags, dates, files, tools)       â”‚
+â”‚  â€¢ Analytics aggregations (token trends, skill frequency)  â”‚
+â”‚  â€¢ Replay frame generation (time â†’ visual state)           â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
@@ -199,16 +199,16 @@ composer.addPass(new FilmPass({ noiseIntensity: 0.02, scanlinesIntensity: 0.05 }
 ### 3.3 Session Visualization (Live Monitor)
 
 ```
-Active Session → Neural Pathway
-├── User Message          → Bright blue impulse (afferent)
-├── Model Reasoning       → Purple slow wave (internal)
-├── Tool Call             → Gold spike (efferent)
-│   ├── bash              → Terminal icon particle
-│   ├── edit/read/write   → File icon particle  
-│   ├── mcp_call          → MCP server node highlight
-│   └── skill             → Cerebellum region pulse
-├── Tool Result           → Green return wave
-└── Assistant Response    → Blue impulse train (efferent)
+Active Session â†’ Neural Pathway
+â”œâ”€â”€ User Message          â†’ Bright blue impulse (afferent)
+â”œâ”€â”€ Model Reasoning       â†’ Purple slow wave (internal)
+â”œâ”€â”€ Tool Call             â†’ Gold spike (efferent)
+â”‚   â”œâ”€â”€ bash              â†’ Terminal icon particle
+â”‚   â”œâ”€â”€ edit/read/write   â†’ File icon particle  
+â”‚   â”œâ”€â”€ mcp_call          â†’ MCP server node highlight
+â”‚   â””â”€â”€ skill             â†’ Cerebellum region pulse
+â”œâ”€â”€ Tool Result           â†’ Green return wave
+â””â”€â”€ Assistant Response    â†’ Blue impulse train (efferent)
 
 Visual Encoding:
 - Amplitude = token count / complexity
@@ -220,17 +220,17 @@ Visual Encoding:
 ### 3.4 Session Replay (Time-Travel)
 
 ```
-Timeline Scrubber (bottom) → Controls replay speed/direction
-├── 0.1x  ── 0.5x ── 1x ── 2x ── 10x ── 100x
-├── Frame-by-frame stepping (←/→ keys)
-├── Bookmark markers (errors, tool calls, file edits)
-├── Synchronized multi-view:
-│   ├── 3D Brain (main)
-│   ├── Message Log (side panel)
-│   ├── File Diff Viewer (modal)
-│   ├── Token Counter (HUD)
-│   └── Tool Call Graph (overlay)
-└── Export: WebM video, JSON trace, annotated markdown
+Timeline Scrubber (bottom) â†’ Controls replay speed/direction
+â”œâ”€â”€ 0.1x  â”€â”€ 0.5x â”€â”€ 1x â”€â”€ 2x â”€â”€ 10x â”€â”€ 100x
+â”œâ”€â”€ Frame-by-frame stepping (â†/â†’ keys)
+â”œâ”€â”€ Bookmark markers (errors, tool calls, file edits)
+â”œâ”€â”€ Synchronized multi-view:
+â”‚   â”œâ”€â”€ 3D Brain (main)
+â”‚   â”œâ”€â”€ Message Log (side panel)
+â”‚   â”œâ”€â”€ File Diff Viewer (modal)
+â”‚   â”œâ”€â”€ Token Counter (HUD)
+â”‚   â””â”€â”€ Tool Call Graph (overlay)
+â””â”€â”€ Export: WebM video, JSON trace, annotated markdown
 ```
 
 ### 3.5 Architecture Map (System Exploration)
@@ -245,9 +245,9 @@ Layer 5: MCP Servers (connected to skills/tools that call them)
 Layer 6: Plugins (connected to events they handle)
 
 Interactions:
-- Click node → expand details panel
-- Drag node → pin position, others re-layout
-- Hover edge → show call frequency, latency
+- Click node â†’ expand details panel
+- Drag node â†’ pin position, others re-layout
+- Hover edge â†’ show call frequency, latency
 - Filter by: active/inactive, local/remote, enabled/disabled
 - Search: fuzzy match on any property
 ```
@@ -256,24 +256,24 @@ Interactions:
 
 ```
 Persistent HUD (top-right, semi-transparent):
-├── System Health
-│   ├── Active sessions: 3
-│   ├── Queue depth: 0
-│   ├── Payload size: 12.4 MB / 18 MB (trim threshold)
-│   └── MCP status: 14/22 ON
-├── Token Economy (rolling 24h)
-│   ├── Total: 2.4M tokens
-│   ├── By provider: NVIDIA 45%, Anthropic 30%, Local 25%
-│   ├── By skill: brainstorming 15%, compile 12%, note 8%
-│   └── Cost estimate: $0.47 (NIM) / $0.00 (local)
-├── Performance
-│   ├── Avg response: 3.2s
-│   ├── Tool call success: 94%
-│   └── Trim events: 2 (last 24h)
-└── Session Patterns
-    ├── Peak hours: 14:00-18:00, 22:00-02:00
-    ├── Avg session: 47 messages, 12 min
-    └── Most used tools: bash, read, edit, mcp_call
+â”œâ”€â”€ System Health
+â”‚   â”œâ”€â”€ Active sessions: 3
+â”‚   â”œâ”€â”€ Queue depth: 0
+â”‚   â”œâ”€â”€ Payload size: 12.4 MB / 18 MB (trim threshold)
+â”‚   â””â”€â”€ MCP status: 14/22 ON
+â”œâ”€â”€ Token Economy (rolling 24h)
+â”‚   â”œâ”€â”€ Total: 2.4M tokens
+â”‚   â”œâ”€â”€ By provider: NVIDIA 45%, Anthropic 30%, Local 25%
+â”‚   â”œâ”€â”€ By skill: brainstorming 15%, compile 12%, note 8%
+â”‚   â””â”€â”€ Cost estimate: $0.47 (NIM) / $0.00 (local)
+â”œâ”€â”€ Performance
+â”‚   â”œâ”€â”€ Avg response: 3.2s
+â”‚   â”œâ”€â”€ Tool call success: 94%
+â”‚   â””â”€â”€ Trim events: 2 (last 24h)
+â””â”€â”€ Session Patterns
+    â”œâ”€â”€ Peak hours: 14:00-18:00, 22:00-02:00
+    â”œâ”€â”€ Avg session: 47 messages, 12 min
+    â””â”€â”€ Most used tools: bash, read, edit, mcp_call
 ```
 
 ---
@@ -284,72 +284,72 @@ Persistent HUD (top-right, semi-transparent):
 
 ```
 brain-interface/
-├── plugin/                          # opencode plugin
-│   ├── src/
-│   │   ├── index.ts                 # Plugin entry
-│   │   ├── ws-server.ts             # WebSocket server (ws library)
-│   │   ├── event-bridge.ts          # opencode events → WS
-│   │   ├── file-watcher.ts          # chokidar on vault/sessions
-│   │   ├── mcp-proxy.ts             # MCP bridge → WS RPC
-│   │   └── static-server.ts         # Dev asset serving
-│   ├── package.json
-│   └── tsconfig.json
-│
-├── web/                             # Standalone web app
-│   ├── public/
-│   │   ├── index.html
-│   │   ├── manifest.json
-│   │   └── favicon.svg
-│   ├── src/
-│   │   ├── main.ts                  # App bootstrap
-│   │   ├── engine/
-│   │   │   ├── WebGPUEngine.ts      # Three.js + WebGPU setup
-│   │   │   ├── ComputePipeline.ts   # Compute shader manager
-│   │   │   ├── RenderLoop.ts        # Fixed-timestep loop
-│   │   │   └── PostProcessing.ts    # Effect composer
-│   │   ├── data/
-│   │   │   ├── IndexedDB.ts         # Wrapper with migrations
-│   │   │   ├── SessionParser.ts     # Streaming transcript parser
-│   │   │   ├── QueryEngine.ts       # Web Worker + SQL.js
-│   │   │   └── ReplayEngine.ts      # Frame generation
-│   │   ├── modules/
-│   │   │   ├── SessionMonitor.ts    # Live neural visualization
-│   │   │   ├── SessionReplay.ts     # Time-travel scrubber
-│   │   │   ├── ArchitectureMap.ts   # Force-directed graph
-│   │   │   ├── AnalyticsHUD.ts      # Overlay dashboard
-│   │   │   └── BrainRegions.ts      # Region management
-│   │   ├── ui/
-│   │   │   ├── HUD.ts               # Persistent overlay
-│   │   │   ├── Panels.ts            # Slide-in detail panels
-│   │   │   ├── Controls.ts          # Camera, timeline, filters
-│   │   │   └── Settings.ts          # Preferences modal
-│   │   ├── shaders/
-│   │   │   ├── force-directed.wgsl  # GPU force layout
-│   │   │   ├── particle-trail.wgsl  # Session impulse trails
-│   │   │   ├── neural-pulse.wgsl    # Brain region animation
-│   │   │   └── bloom.wgsl           # Custom bloom
-│   │   └── styles/
-│   │       ├── variables.css        # Design tokens
-│   │       ├── layout.css           # Grid/flex layout
-│   │       └── components.css       # Panel, button, slider styles
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts               # Vite + wasm + webgpu
-│   └── worker/
-│       └── query.worker.ts          # Web Worker for data
-│
-├── shared/                          # Shared types
-│   ├── types.ts                     # WebSocket protocol, data schemas
-│   └── constants.ts                 # Ports, thresholds, colors
-│
-├── docs/
-│   ├── architecture.md
-│   ├── shader-guide.md
-│   └── plugin-api.md
-│
-├── package.json                     # Root workspace (pnpm)
-├── turbo.json                       # Turborepo config
-└── README.md
+â”œâ”€â”€ plugin/                          # opencode plugin
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ index.ts                 # Plugin entry
+â”‚   â”‚   â”œâ”€â”€ ws-server.ts             # WebSocket server (ws library)
+â”‚   â”‚   â”œâ”€â”€ event-bridge.ts          # opencode events â†’ WS
+â”‚   â”‚   â”œâ”€â”€ file-watcher.ts          # chokidar on vault/sessions
+â”‚   â”‚   â”œâ”€â”€ mcp-proxy.ts             # MCP bridge â†’ WS RPC
+â”‚   â”‚   â””â”€â”€ static-server.ts         # Dev asset serving
+â”‚   â”œâ”€â”€ package.json
+â”‚   â””â”€â”€ tsconfig.json
+â”‚
+â”œâ”€â”€ web/                             # Standalone web app
+â”‚   â”œâ”€â”€ public/
+â”‚   â”‚   â”œâ”€â”€ index.html
+â”‚   â”‚   â”œâ”€â”€ manifest.json
+â”‚   â”‚   â””â”€â”€ favicon.svg
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ main.ts                  # App bootstrap
+â”‚   â”‚   â”œâ”€â”€ engine/
+â”‚   â”‚   â”‚   â”œâ”€â”€ WebGPUEngine.ts      # Three.js + WebGPU setup
+â”‚   â”‚   â”‚   â”œâ”€â”€ ComputePipeline.ts   # Compute shader manager
+â”‚   â”‚   â”‚   â”œâ”€â”€ RenderLoop.ts        # Fixed-timestep loop
+â”‚   â”‚   â”‚   â””â”€â”€ PostProcessing.ts    # Effect composer
+â”‚   â”‚   â”œâ”€â”€ data/
+â”‚   â”‚   â”‚   â”œâ”€â”€ IndexedDB.ts         # Wrapper with migrations
+â”‚   â”‚   â”‚   â”œâ”€â”€ SessionParser.ts     # Streaming transcript parser
+â”‚   â”‚   â”‚   â”œâ”€â”€ QueryEngine.ts       # Web Worker + SQL.js
+â”‚   â”‚   â”‚   â””â”€â”€ ReplayEngine.ts      # Frame generation
+â”‚   â”‚   â”œâ”€â”€ modules/
+â”‚   â”‚   â”‚   â”œâ”€â”€ SessionMonitor.ts    # Live neural visualization
+â”‚   â”‚   â”‚   â”œâ”€â”€ SessionReplay.ts     # Time-travel scrubber
+â”‚   â”‚   â”‚   â”œâ”€â”€ ArchitectureMap.ts   # Force-directed graph
+â”‚   â”‚   â”‚   â”œâ”€â”€ AnalyticsHUD.ts      # Overlay dashboard
+â”‚   â”‚   â”‚   â””â”€â”€ BrainRegions.ts      # Region management
+â”‚   â”‚   â”œâ”€â”€ ui/
+â”‚   â”‚   â”‚   â”œâ”€â”€ HUD.ts               # Persistent overlay
+â”‚   â”‚   â”‚   â”œâ”€â”€ Panels.ts            # Slide-in detail panels
+â”‚   â”‚   â”‚   â”œâ”€â”€ Controls.ts          # Camera, timeline, filters
+â”‚   â”‚   â”‚   â””â”€â”€ Settings.ts          # Preferences modal
+â”‚   â”‚   â”œâ”€â”€ shaders/
+â”‚   â”‚   â”‚   â”œâ”€â”€ force-directed.wgsl  # GPU force layout
+â”‚   â”‚   â”‚   â”œâ”€â”€ particle-trail.wgsl  # Session impulse trails
+â”‚   â”‚   â”‚   â”œâ”€â”€ neural-pulse.wgsl    # Brain region animation
+â”‚   â”‚   â”‚   â””â”€â”€ bloom.wgsl           # Custom bloom
+â”‚   â”‚   â””â”€â”€ styles/
+â”‚   â”‚       â”œâ”€â”€ variables.css        # Design tokens
+â”‚   â”‚       â”œâ”€â”€ layout.css           # Grid/flex layout
+â”‚   â”‚       â””â”€â”€ components.css       # Panel, button, slider styles
+â”‚   â”œâ”€â”€ package.json
+â”‚   â”œâ”€â”€ tsconfig.json
+â”‚   â”œâ”€â”€ vite.config.ts               # Vite + wasm + webgpu
+â”‚   â””â”€â”€ worker/
+â”‚       â””â”€â”€ query.worker.ts          # Web Worker for data
+â”‚
+â”œâ”€â”€ shared/                          # Shared types
+â”‚   â”œâ”€â”€ types.ts                     # WebSocket protocol, data schemas
+â”‚   â””â”€â”€ constants.ts                 # Ports, thresholds, colors
+â”‚
+â”œâ”€â”€ docs/
+â”‚   â”œâ”€â”€ architecture.md
+â”‚   â”œâ”€â”€ shader-guide.md
+â”‚   â””â”€â”€ plugin-api.md
+â”‚
+â”œâ”€â”€ package.json                     # Root workspace (pnpm)
+â”œâ”€â”€ turbo.json                       # Turborepo config
+â””â”€â”€ README.md
 ```
 
 ### 4.2 Key Dependencies
@@ -445,14 +445,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 ### 4.4 Session Parser (Streaming, Incremental)
 
 ```typescript
-// SessionParser.ts — Handles 100MB+ transcripts efficiently
+// SessionParser.ts â€” Handles 100MB+ transcripts efficiently
 export class SessionParser {
   private db: IDBDatabase;
   private worker: Worker;
   
   async parseTranscript(file: File, sessionId: string): Promise<void> {
     // 1. Stream file in chunks (64KB)
-    // 2. Parse markdown → structured messages incrementally
+    // 2. Parse markdown â†’ structured messages incrementally
     // 3. Store in IndexedDB with indexes: sessionId, timestamp, tool, file
     // 4. Emit progress events for UI
     
@@ -479,7 +479,7 @@ export class SessionParser {
   }
   
   private parseLine(line: string, index: number): Message | null {
-    // Fast regex parsing for: ### [N] role — timestamp
+    // Fast regex parsing for: ### [N] role â€” timestamp
     // Tool invocations, file ops, reasoning, etc.
   }
 }
@@ -494,7 +494,7 @@ export class SessionParser {
 - [ ] Basic Three.js + WebGPU scene setup
 - [ ] IndexedDB schema + session parser
 - [ ] Vault/sessions auto-discovery
-- [ ] Dev environment: `pnpm dev` → plugin + Vite HMR
+- [ ] Dev environment: `pnpm dev` â†’ plugin + Vite HMR
 
 ### Phase 2: Core Visualizations (Week 3-4)
 - [ ] Brain regions (static geometry + shaders)
@@ -528,7 +528,7 @@ export class SessionParser {
     "./plugins/session-logger/session-logger.js",
     "./plugins/mcp-bridge.js",
     "./plugins/brain-interface/plugin.js",  // NEW
-    "C:/Users/danhe/.config/opencode/node_modules/superpowers"
+    "~/.config/opencode/node_modules/superpowers"
   ],
   "brainInterface": {
     "port": 3030,
@@ -584,26 +584,26 @@ pnpm plugin:build # Compiles plugin to dist/plugin.js
 
 ## 8. Future Extensions (Post-MVP)
 
-- **Multi-user collaboration** — Shared brain state via WebRTC
-- **AI-assisted insights** — "Why did this session trim?" → natural language explanation
-- **Prompt optimization** — Visualize token waste, suggest prompt rewrites
-- **Skill usage heatmap** — Which skills fire together, which are dead code
-- **MCP call tracing** — Distributed trace view across MCP servers
-- **Mobile companion** — Read-only view on phone (WebGL only)
-- **Export to Obsidian** — Brain state as markdown + graph links
+- **Multi-user collaboration** â€” Shared brain state via WebRTC
+- **AI-assisted insights** â€” "Why did this session trim?" â†’ natural language explanation
+- **Prompt optimization** â€” Visualize token waste, suggest prompt rewrites
+- **Skill usage heatmap** â€” Which skills fire together, which are dead code
+- **MCP call tracing** â€” Distributed trace view across MCP servers
+- **Mobile companion** â€” Read-only view on phone (WebGL only)
+- **Export to Obsidian** â€” Brain state as markdown + graph links
 
 ---
 
 ## 9. Appendix: Design Tokens
 
 ```css
-/* variables.css — Brain Interface Design System */
+/* variables.css â€” Brain Interface Design System */
 :root {
   /* Neural Color Palette */
-  --neural-afferent: #00d4ff;      /* User → Model (cyan) */
-  --neural-efferent: #ff6b00;      /* Model → Tool (orange) */
+  --neural-afferent: #00d4ff;      /* User â†’ Model (cyan) */
+  --neural-efferent: #ff6b00;      /* Model â†’ Tool (orange) */
   --neural-internal: #b84aff;      /* Reasoning (purple) */
-  --neural-return: #00ff88;        /* Tool → Model (green) */
+  --neural-return: #00ff88;        /* Tool â†’ Model (green) */
   --neural-error: #ff0044;         /* Errors (red) */
   --neural-background: #030508;    /* Deep space */
   --neural-surface: #0a0f14;       /* Panel background */

@@ -37,9 +37,8 @@ const MAX_TRACKED = 500;
 const CONFIG_DIR =
   process.env.OPENCODE_CONFIG_DIR ||
   (process.platform === 'win32'
-    ? path.join(process.env.USERPROFILE || 'C:\\Users\\danhe', '.config', 'opencode')
+    ? path.join(process.env.USERPROFILE || '', '.config', 'opencode')
     : path.join(process.env.HOME || '', '.config', 'opencode'));
-const DEFAULT_VAULT = 'D:/documents/personal/main_vault';
 
 /* ------------------------------------------------------------------ */
 /* Vault discovery (same signature walk as session-logger)             */
@@ -47,22 +46,27 @@ const DEFAULT_VAULT = 'D:/documents/personal/main_vault';
 
 function looksLikeVault(dir) {
   try {
-    return fs.existsSync(path.join(dir, 'Home.md')) && fs.existsSync(path.join(dir, 'log.md'));
+    return (
+      fs.existsSync(path.join(dir, 'Home.md')) &&
+      fs.existsSync(path.join(dir, 'log.md')) &&
+      fs.existsSync(path.join(dir, 'sessions'))
+    );
   } catch {
     return false;
   }
 }
 
+/** Walk upward for the vault root; null when none found. */
 function findVault(directory) {
   let dir = directory;
-  if (!dir) return DEFAULT_VAULT;
+  if (!dir) return null;
   while (true) {
     if (looksLikeVault(dir)) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return DEFAULT_VAULT;
+  return null;
 }
 
 /* ------------------------------------------------------------------ */

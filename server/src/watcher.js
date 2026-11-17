@@ -11,6 +11,10 @@ import { SESSIONS_DIR } from './config.js';
 const DEBOUNCE_MS = 1000;
 
 export function startWatcher({ onSessionsChanged, log }) {
+  if (!SESSIONS_DIR) {
+    log('no vault configured — session watcher disabled (set BRAIN_VAULT or data/local.json)');
+    return { close() {} };
+  }
   let timer = null;
   const trigger = (file) => {
     clearTimeout(timer);

@@ -15,8 +15,6 @@ export const BRAIN_PORT = Number(process.env.BRAIN_PORT || 3030);
 export const SIMULATE = process.argv.includes('--simulate');
 export const SERVE_WEB = process.argv.includes('--serve-web');
 
-export const DEFAULT_VAULT = 'D:/documents/personal/main_vault';
-
 export function configDir() {
   return (
     process.env.OPENCODE_CONFIG_DIR ||
@@ -24,48 +22,62 @@ export function configDir() {
   );
 }
 
+/** A vault has the second-brain signature AND a sessions/ directory —
+ *  project brains (Home.md + log.md only) don't qualify. */
 function looksLikeVault(dir) {
   try {
     return (
       fs.existsSync(path.join(dir, 'Home.md')) &&
-      fs.existsSync(path.join(dir, 'log.md'))
+      fs.existsSync(path.join(dir, 'log.md')) &&
+      fs.existsSync(path.join(dir, 'sessions'))
     );
   } catch {
     return false;
   }
 }
 
-/** Walk upward from `start` to find a vault root; fall back to default. */
+/** Walk upward from `start` to find a vault root; null when none. */
 export function findVault(start) {
   let dir = start;
-  if (!dir) return DEFAULT_VAULT;
+  if (!dir) return null;
   while (true) {
     if (looksLikeVault(dir)) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return DEFAULT_VAULT;
+  return null;
 }
 
+/** Machine-local overrides live in data/local.json (gitignored). */
+function localVault() {
+  try {
+    const file = path.resolve(import.meta.dirname, '../../data/local.json');
+    // Strip a UTF-8 BOM if present (Windows editors love adding one).
+    const text = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '');
+    const json = JSON.parse(text);
+    return typeof json.vault === 'string' && json.vault ? json.vault : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Vault resolution order:
+ *   1. BRAIN_VAULT env var
+ *   2. data/local.json  { "vault": "…" }   (gitignored, machine-local)
+ *   3. upward walk from the working directory
+ * Result may be null — the server runs fine without a vault (live events +
+ * simulator only); vault-backed features (history, transcripts) just stay off.
+ */
 export function resolveVault() {
   if (process.env.BRAIN_VAULT) return process.env.BRAIN_VAULT;
-  // Prefer the known vault when it exists on disk: project folders also
-  // carry Home.md + log.md (their brain scaffold), so a plain upward walk
-  // from the repo root would stop at the project instead of the vault.
-  try {
-    if (fs.existsSync(path.join(DEFAULT_VAULT, 'sessions')) || looksLikeVault(DEFAULT_VAULT)) {
-      return DEFAULT_VAULT;
-    }
-  } catch {
-    /* fall through to walk */
-  }
-  return findVault(process.cwd());
+  return localVault() || findVault(process.cwd());
 }
 
 export const VAULT = resolveVault();
-export const SESSIONS_DIR = path.join(VAULT, 'sessions');
-export const INDEX_FILE = path.join(SESSIONS_DIR, 'index.md');
+export const SESSIONS_DIR = VAULT ? path.join(VAULT, 'sessions') : null;
+export const INDEX_FILE = SESSIONS_DIR ? path.join(SESSIONS_DIR, 'index.md') : null;
 
 /** Files sent to the browser as-is. Small map — enough for our own dist. */
 export const MIME = {

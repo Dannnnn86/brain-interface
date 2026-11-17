@@ -163,6 +163,7 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         version: 1,
         simulate: SIMULATE,
+        vault: VAULT || null,
         uptimeMs: Date.now() - startedAt,
         wsClients: hub.size,
         sessions: store.list().length,
@@ -315,8 +316,8 @@ server.on('error', (err) => {
 });
 
 server.listen(BRAIN_PORT, HOST, () => {
-  log(`vault:        ${VAULT}`);
-  log(`sessions dir: ${SESSIONS_DIR}${fs.existsSync(SESSIONS_DIR) ? '' : '  (NOT FOUND)'}`);
+  log(`vault:        ${VAULT || '(none — set BRAIN_VAULT or data/local.json for history features)'}`);
+  log(`sessions dir: ${SESSIONS_DIR ? SESSIONS_DIR + (fs.existsSync(SESSIONS_DIR) ? '' : '  (NOT FOUND)') : '(disabled)'}`);
   log(`listening on  http://${HOST}:${BRAIN_PORT}   ws://${HOST}:${BRAIN_PORT}/ws`);
   log(`mode:         ${SIMULATE ? 'SIMULATE' : 'live'}${fs.existsSync(WEB_DIST) ? ' + serving web/dist' : ''}`);
 });

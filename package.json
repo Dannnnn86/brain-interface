@@ -1,8 +1,26 @@
 {
   "name": "brain-interface",
-  "private": true,
   "version": "0.1.0",
-  "description": "3D WebGPU visualization of the opencode system — live sessions, architecture, replay, analytics",
+  "description": "3D WebGPU neural visualization of the opencode AI coding system — live sessions, architecture map, session replay, and analytics",
+  "license": "MIT",
+  "author": "Dannnnn86",
+  "homepage": "https://github.com/Dannnnn86/brain-interface#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dannnnn86/brain-interface.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Dannnnn86/brain-interface/issues"
+  },
+  "keywords": [
+    "opencode",
+    "webgpu",
+    "threejs",
+    "visualization",
+    "ai-agent",
+    "monitoring",
+    "neural"
+  ],
   "type": "module",
   "workspaces": [
     "server",
